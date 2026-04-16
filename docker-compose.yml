@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: gitsocial-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: gitsocial_user
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: gitsocial_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
