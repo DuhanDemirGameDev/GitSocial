@@ -6,11 +6,12 @@ services:
     container_name: gitsocial-postgres
     restart: always
     environment:
-      POSTGRES_USER: gitsocial_user
-      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: gitsocial_db
     ports:
-      - "5433:5432"
+      # Sol taraf senin lokal portun (.env'den gelecek), sağ taraf Docker'ın iç portu (hep 5432 kalır)
+      - "${LOCAL_DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
