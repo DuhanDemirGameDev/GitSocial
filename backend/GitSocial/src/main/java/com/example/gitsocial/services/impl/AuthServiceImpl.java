@@ -9,6 +9,9 @@ import com.example.gitsocial.services.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.example.gitsocial.domain.dto.AuthResponse;
+import com.example.gitsocial.domain.dto.LoginRequest;
+import com.example.gitsocial.exception.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -36,5 +39,27 @@ public class AuthServiceImpl implements AuthService {
 
         // 5. Kaydedilen kullanıcıyı DTO olarak geri dön
         return userMapper.toDto(savedUser);
+    }
+
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        // 1. Kullanıcıyı e-posta ile bul
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new ResourceNotFoundException("Hatalı e-posta veya şifre"));
+
+        // 2. Şifre eşleşiyor mu kontrol et (Gelen düz metin ile DB'deki BCrypt hash'ini karşılaştırır)
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            // Güvenlik gereği hangi bilginin yanlış olduğunu açık etmiyoruz, ikisi için de aynı mesaj!
+            throw new RuntimeException("Hatalı e-posta veya şifre");
+        }
+
+        // 3. User Entity'sini güvenli UserDto'ya çevir
+        UserDto userDto = userMapper.toDto(user);
+
+        // 4. Şimdilik geçici bir token koyuyoruz. (Görev-2'deki JWT entegrasyonu gelince burası değişecek)
+        String dummyToken = "jwt-token-buraya-gelecek";
+
+        // 5. Sonucu dön
+        return new AuthResponse(userDto, dummyToken);
     }
 }
