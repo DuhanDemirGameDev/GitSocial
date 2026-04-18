@@ -3,6 +3,8 @@ package com.example.gitsocial.services.impl;
 import com.example.gitsocial.domain.dto.RegisterRequest;
 import com.example.gitsocial.domain.dto.UserDto;
 import com.example.gitsocial.domain.entities.User;
+import com.example.gitsocial.exception.ResourceAlreadyExistsException;
+import com.example.gitsocial.exception.UnauthorizedException;
 import com.example.gitsocial.mappers.UserMapper;
 import com.example.gitsocial.repositories.UserRepository;
 import com.example.gitsocial.security.JwtService;
@@ -27,7 +29,7 @@ public class AuthServiceImpl implements AuthService {
     public UserDto register(RegisterRequest request) {
         // 1. E-posta adresi daha önce kullanılmış mı kontrol et
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Bu e-posta adresi zaten sistemde kayıtlı.");
+            throw new ResourceAlreadyExistsException("Bu e-posta adresi zaten sistemde kayıtlı.");
         }
 
         // 2. DTO'yu Entity'ye çevir (Rol ataması mapper içinde yapılıyor)
@@ -45,14 +47,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        // 1. Kullanıcıyı e-posta ile bul
+        // 1. Kullanıcıyı e-posta ile bul (Bulunamazsa 401 Unauthorized dön)
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResourceNotFoundException("Hatalı e-posta veya şifre"));
+                .orElseThrow(() -> new UnauthorizedException("Hatalı e-posta veya şifre"));
 
-        // 2. Şifre eşleşiyor mu kontrol et (Gelen düz metin ile DB'deki BCrypt hash'ini karşılaştırır)
+        // 2. Şifre eşleşiyor mu kontrol et (Eşleşmezse yine aynı hatayı 401 Unauthorized ile dön)
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            // Güvenlik gereği hangi bilginin yanlış olduğunu açık etmiyoruz, ikisi için de aynı mesaj!
-            throw new RuntimeException("Hatalı e-posta veya şifre");
+            throw new UnauthorizedException("Hatalı e-posta veya şifre");
         }
 
         // 3. User Entity'sini güvenli UserDto'ya çevir
