@@ -5,6 +5,7 @@ import com.example.gitsocial.domain.dto.UserDto;
 import com.example.gitsocial.domain.entities.User;
 import com.example.gitsocial.mappers.UserMapper;
 import com.example.gitsocial.repositories.UserRepository;
+import com.example.gitsocial.security.JwtService;
 import com.example.gitsocial.services.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +21,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Override
     public UserDto register(RegisterRequest request) {
@@ -57,9 +59,9 @@ public class AuthServiceImpl implements AuthService {
         UserDto userDto = userMapper.toDto(user);
 
         // 4. Şimdilik geçici bir token koyuyoruz. (Görev-2'deki JWT entegrasyonu gelince burası değişecek)
-        String dummyToken = "jwt-token-buraya-gelecek";
+        String jwtToken = jwtService.generateToken(user);
 
         // 5. Sonucu dön
-        return new AuthResponse(userDto, dummyToken);
+        return new AuthResponse(userDto, jwtToken);
     }
 }
