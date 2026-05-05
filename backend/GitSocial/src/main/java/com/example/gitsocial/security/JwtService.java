@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -17,10 +18,15 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    // Gizli imza anahtarımızı normalde çevresel değişkenlerden almalıyız, şimdilik test için statik bırakıyoruz
-    private static final String SECRET_KEY = "VGhpcyBpcyBhIHZlcnkgc2VjdXJlIGFuZCBsb25nIHNlY3JldCBrZXkgZm9yIEdpdFNvY2lhbCBwcm9qZWN0";
+    @Value("${app.security.jwt.secret}")
+    private String secretKey;
 
-    // Access Token Üretimi (Kısa süreli)
+    @Value("${app.security.jwt.access-token-expiration-ms}")
+    private long accessTokenExpirationMs;
+
+    @Value("${app.security.jwt.refresh-token-expiration-ms}")
+    private long refreshTokenExpirationMs;
+
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
@@ -30,19 +36,26 @@ public class JwtService {
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 15)) // 15 dakika
+                .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Refresh Token Üretimi (Uzun süreli)
     public String generateRefreshToken(UserDetails userDetails) {
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7 gün
+                .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpirationMs))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public long getAccessTokenExpirationMs() {
+        return accessTokenExpirationMs;
+    }
+
+    public long getRefreshTokenExpirationMs() {
+        return refreshTokenExpirationMs;
     }
 
     public String extractUsername(String token) {
@@ -51,7 +64,7 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {
@@ -76,7 +89,7 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

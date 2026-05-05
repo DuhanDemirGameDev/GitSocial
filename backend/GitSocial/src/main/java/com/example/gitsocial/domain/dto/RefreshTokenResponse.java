@@ -1,7 +1,6 @@
 package com.example.gitsocial.domain.dto;
 
-public record AuthResponse(
-        UserDto user,
+public record RefreshTokenResponse(
         String accessToken,
         long expiresInMs
 ) {
