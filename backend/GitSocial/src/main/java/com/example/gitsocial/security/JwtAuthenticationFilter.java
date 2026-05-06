@@ -23,6 +23,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
+
+
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -30,11 +32,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        // 1. ERKEN ÇIKIŞ: Eğer gelen istek /auth/ ile başlıyorsa, hiç token aramadan doğrudan geçiş ver!
+        if (request.getServletPath().contains("/auth/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
 
-        // 1. İstekte "Authorization" başlığı yoksa veya "Bearer " ile başlamıyorsa, pas geç.
+        // ... kodun geri kalanı aynı şekilde devam edecek ...
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;

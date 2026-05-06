@@ -1,27 +1,23 @@
 package com.example.gitsocial.services.impl;
 
-import com.example.gitsocial.domain.dto.AuthResponse;
-import com.example.gitsocial.domain.dto.AuthSessionResponse;
-import com.example.gitsocial.domain.dto.LoginRequest;
-import com.example.gitsocial.domain.dto.LogoutResponse;
-import com.example.gitsocial.domain.dto.RefreshTokenResponse;
-import com.example.gitsocial.domain.dto.RegisterRequest;
-import com.example.gitsocial.domain.dto.UserDto;
+import com.example.gitsocial.domain.dto.*;
+import com.example.gitsocial.domain.entities.PasswordResetToken;
 import com.example.gitsocial.domain.entities.RefreshToken;
 import com.example.gitsocial.domain.entities.User;
 import com.example.gitsocial.exception.ResourceAlreadyExistsException;
 import com.example.gitsocial.exception.UnauthorizedException;
 import com.example.gitsocial.mappers.UserMapper;
+import com.example.gitsocial.repositories.PasswordResetTokenRepository;
 import com.example.gitsocial.repositories.RefreshTokenRepository;
 import com.example.gitsocial.repositories.UserRepository;
 import com.example.gitsocial.security.JwtService;
 import com.example.gitsocial.services.AuthService;
+import com.example.gitsocial.services.EmailService;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +33,8 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -136,5 +134,57 @@ public class AuthServiceImpl implements AuthService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 algoritması kullanılamıyor.", ex);
         }
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // 1. Kullanıcıyı bul
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new UnauthorizedException("Kullanıcı bulunamadı."));
+        // Not: Güvenlik için normalde "Eğer mail varsa gönderdik" denir,
+        // ama biz geliştirme aşamasında hatayı net görmek için fırlatıyoruz.
+
+        // 2. Varsa eski token'ları temizle (Gereksiz veri birikmesin)
+        passwordResetTokenRepository.deleteByUser(user);
+
+        // 3. 36 karakterlik rastgele ve eşsiz bir token (bilet) üret
+        String token = java.util.UUID.randomUUID().toString();
+
+        // 4. Veri tabanına kaydet (15 dakika geçerli olacak)
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .user(user)
+                .expiryDate(Instant.now().plus(15, java.time.temporal.ChronoUnit.MINUTES))
+                .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // 5. Frontend'deki şifre sıfırlama ekranının linkini oluştur (Token'ı sonuna ekleyerek)
+        String resetLink = "http://localhost:5173/reset-password?token=" + token;
+
+        // 6. O havalı HTML e-postamızı yolla!
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        // 1. Gelen token veri tabanında var mı?
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.token())
+                .orElseThrow(() -> new UnauthorizedException("Geçersiz veya hatalı token."));
+
+        // 2. Token'ın süresi dolmuş mu?
+        if (resetToken.isExpired()) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new UnauthorizedException("Bu bağlantının süresi dolmuş. Lütfen tekrar şifre sıfırlama isteğinde bulunun.");
+        }
+
+        // 3. Kullanıcıyı al, yeni şifreyi kriptola ve kaydet
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+
+        // 4. Kullanılmış bileti imha et (Aynı linkle tekrar şifre değiştirilemesin)
+        passwordResetTokenRepository.delete(resetToken);
     }
 }

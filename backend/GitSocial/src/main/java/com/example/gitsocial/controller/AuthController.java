@@ -1,12 +1,6 @@
 package com.example.gitsocial.controller;
 
-import com.example.gitsocial.domain.dto.AuthResponse;
-import com.example.gitsocial.domain.dto.AuthSessionResponse;
-import com.example.gitsocial.domain.dto.LoginRequest;
-import com.example.gitsocial.domain.dto.LogoutResponse;
-import com.example.gitsocial.domain.dto.RefreshTokenResponse;
-import com.example.gitsocial.domain.dto.RegisterRequest;
-import com.example.gitsocial.domain.dto.UserDto;
+import com.example.gitsocial.domain.dto.*;
 import com.example.gitsocial.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,5 +82,18 @@ public class AuthController {
                 .path("/auth")
                 .maxAge(Duration.ZERO)
                 .build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        // İstemciye düz metin (String) dönüyoruz
+        return ResponseEntity.ok("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok("Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.");
     }
 }
