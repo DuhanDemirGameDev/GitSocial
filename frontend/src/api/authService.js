@@ -38,5 +38,18 @@ export const authService = {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         // İleride buraya backend'e çıkış yapıldığını bildiren bir istek de eklenebilir
+    },
+    forgotPassword: async (data) => {
+        // data = { email: "ornek@mail.com" }
+        // axios.post yerine api.post yapıyoruz!
+        const response = await api.post('/auth/forgot-password', data);
+        return response.data; 
+    },
+
+    resetPassword: async (data) => {
+        // data = { token: "...", newPassword: "..." }
+        // axiosInstance.post yerine api.post yapıyoruz!
+        const response = await api.post('/auth/reset-password', data);
+        return response.data;
     }
 };
