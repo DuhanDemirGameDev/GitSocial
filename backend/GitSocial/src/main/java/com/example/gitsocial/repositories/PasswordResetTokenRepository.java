@@ -13,6 +13,8 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     // Gelen token metnine göre veri tabanından token'ı bulma
     Optional<PasswordResetToken> findByToken(String token);
 
+    Optional<PasswordResetToken> findByUser(User user);
+
     // Kullanıcı yeni şifre istediğinde eski token'ları temizlemek için
     void deleteByUser(User user);
 }

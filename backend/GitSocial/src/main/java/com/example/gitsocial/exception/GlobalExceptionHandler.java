@@ -77,6 +77,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ApiErrorResponse> handleEmailDeliveryException(EmailDeliveryException ex, WebRequest request) {
+        ApiErrorResponse errorResponse = ApiErrorResponse.of(
+                HttpStatus.BAD_GATEWAY.value(),
+                "Email Delivery Failed",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", ""),
+                null
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_GATEWAY);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         List<String> validationErrors = new ArrayList<>();

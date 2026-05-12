@@ -145,8 +145,12 @@ public class AuthServiceImpl implements AuthService {
         // Not: Güvenlik için normalde "Eğer mail varsa gönderdik" denir,
         // ama biz geliştirme aşamasında hatayı net görmek için fırlatıyoruz.
 
-        // 2. Varsa eski token'ları temizle (Gereksiz veri birikmesin)
-        passwordResetTokenRepository.deleteByUser(user);
+        // 2. Varsa eski token'i temizle. Flush, unique user_id constraint'i
+        // yeni token insert edilmeden once serbest birakir.
+        passwordResetTokenRepository.findByUser(user).ifPresent(existingToken -> {
+            passwordResetTokenRepository.delete(existingToken);
+            passwordResetTokenRepository.flush();
+        });
 
         // 3. 36 karakterlik rastgele ve eşsiz bir token (bilet) üret
         String token = java.util.UUID.randomUUID().toString();
