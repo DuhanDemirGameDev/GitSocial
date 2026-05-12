@@ -71,6 +71,37 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Transactional
+    public PostResponse updatePost(UUID postId, PostRequestDto request, User currentUser) {
+        Post post = findPost(postId);
+
+        if (!post.getAuthor().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Only the post author can edit this post.");
+        }
+
+        String content = normalizeContent(request.content());
+        if (content == null) {
+            throw new IllegalArgumentException("Post content cannot be blank.");
+        }
+
+        post.setContent(content);
+        post.setPopularityScore(calculateInitialPopularityScore(content, post.getMediaUrl()));
+        return toResponse(postRepository.save(post), currentUser.getId());
+    }
+
+    @Override
+    @Transactional
+    public void deletePost(UUID postId, User currentUser) {
+        Post post = findPost(postId);
+
+        if (!post.getAuthor().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Only the post author can delete this post.");
+        }
+
+        postRepository.delete(post);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<PostResponse> getFeed(Pageable pageable, UUID currentUserId) {
         return postRepository.findAllByOrderByPopularityScoreDescCreatedAtDesc(pageable)
@@ -101,6 +132,11 @@ public class PostServiceImpl implements PostService {
         }
 
         return community;
+    }
+
+    private Post findPost(UUID postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found."));
     }
 
     private String uploadMedia(MultipartFile media) {
@@ -159,7 +195,8 @@ public class PostServiceImpl implements PostService {
                 author.getId(),
                 author.getFirstName(),
                 author.getLastName(),
-                author.getEmail()
+                author.getEmail(),
+                author.getProfilePictureUrl()
         );
         long likeCount = likeRepository.countByPostId(post.getId());
         long commentCount = commentRepository.countByPostId(post.getId());

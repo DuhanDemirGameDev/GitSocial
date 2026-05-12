@@ -12,7 +12,11 @@ public interface InteractionService {
 
     LikeResponse toggleLike(UUID postId, UUID userId);
 
+    LikeResponse toggleCommentLike(UUID postId, UUID commentId, UUID userId);
+
     CommentResponse addComment(UUID postId, UUID userId, CommentRequest request);
 
-    Page<CommentResponse> getCommentsByPost(UUID postId, Pageable pageable);
+    Page<CommentResponse> getCommentsByPost(UUID postId, Pageable pageable, UUID currentUserId);
+
+    void deleteComment(UUID postId, UUID commentId, UUID currentUserId);
 }

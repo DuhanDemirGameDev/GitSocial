@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -55,16 +56,38 @@ public class InteractionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/comments/{commentId}/likes")
+    public ResponseEntity<LikeResponse> toggleCommentLike(
+            @PathVariable UUID postId,
+            @PathVariable UUID commentId,
+            Authentication authentication
+    ) {
+        User user = currentUser(authentication);
+        return ResponseEntity.ok(interactionService.toggleCommentLike(postId, commentId, user.getId()));
+    }
+
     @GetMapping("/comments")
     public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable UUID postId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
     ) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         Pageable pageable = PageRequest.of(safePage, safeSize);
-        return ResponseEntity.ok(interactionService.getCommentsByPost(postId, pageable));
+        return ResponseEntity.ok(interactionService.getCommentsByPost(postId, pageable, currentUser(authentication).getId()));
+    }
+
+    @DeleteMapping("/comments/{commentId}")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable UUID postId,
+            @PathVariable UUID commentId,
+            Authentication authentication
+    ) {
+        User user = currentUser(authentication);
+        interactionService.deleteComment(postId, commentId, user.getId());
+        return ResponseEntity.noContent().build();
     }
 
     private User currentUser(Authentication authentication) {

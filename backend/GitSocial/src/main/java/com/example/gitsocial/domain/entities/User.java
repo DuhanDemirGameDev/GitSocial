@@ -32,6 +32,9 @@ public class User implements UserDetails {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
+    @Column(name = "profile_picture_url", length = 2048)
+    private String profilePictureUrl;
+
     @Column(nullable = false)
     private String password;
 

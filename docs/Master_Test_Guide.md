@@ -837,6 +837,75 @@ LIMIT 20;
 -- Expected: order matches GET /posts/feed response order
 ```
 
+### SC-21A: Successful Post Edit - Author Only
+
+Prerequisite: `{{postId}}` belongs to the authenticated user.
+
+| Field | Value |
+|---|---|
+| Method & URL | `PUT {{baseUrl}}/posts/{{postId}}` |
+| Headers | `Authorization: Bearer {{accessToken}}`, `Content-Type: application/json` |
+| Expected status | `200 OK` |
+
+Request body:
+
+```json
+{
+  "content": "Edited QA post content."
+}
+```
+
+Expected result:
+
+- Response contains the same `id`.
+- Response `content` is updated.
+- `author.id` is unchanged.
+- A different authenticated user receives `403 Forbidden` for the same request.
+
+Database verification:
+
+```sql
+SELECT post_id, content
+FROM posts
+WHERE post_id = 'PASTE_POST_UUID';
+-- Expected: content = 'Edited QA post content.'
+```
+
+### SC-21B: Successful Post Delete - Author Only
+
+Prerequisite: create a disposable post owned by the authenticated user and save its ID as `{{postId}}`.
+
+| Field | Value |
+|---|---|
+| Method & URL | `DELETE {{baseUrl}}/posts/{{postId}}` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Expected status | `204 No Content` |
+
+Request body:
+
+```json
+{}
+```
+
+Expected result:
+
+- Post is deleted.
+- Related post likes and comments are deleted through cascade behavior.
+- A different authenticated user receives `403 Forbidden`.
+
+Database verification:
+
+```sql
+SELECT COUNT(*) FROM posts WHERE post_id = 'PASTE_POST_UUID';
+-- Expected: 0
+
+SELECT COUNT(*) FROM post_likes WHERE post_id = 'PASTE_POST_UUID';
+-- Expected: 0
+
+SELECT COUNT(*) FROM post_comments WHERE post_id = 'PASTE_POST_UUID';
+-- Expected: 0
+```
+
 ## 7. Module 4: Social Interaction
 
 ### SC-22: Successful Like - First Toggle Creates Like
@@ -986,15 +1055,13 @@ SELECT COUNT(*) FROM post_comments WHERE LENGTH(content) > 500;
 -- Expected: 0
 ```
 
-### SC-27: Comment Deletion Rights - Requirement Gap Test
-
-SRS requirement: comment author may delete own comments, and post owner may delete comments under their post. Current implementation exposes no `DELETE` endpoint in `InteractionController`.
+### SC-27: Successful Comment Delete - Comment Author
 
 | Field | Value |
 |---|---|
 | Method & URL | `DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}}` |
 | Headers | `Authorization: Bearer {{accessToken}}` |
-| Expected status | Current implementation: `404 Not Found` or `405 Method Not Allowed`; required behavior after implementation: `204 No Content` for author/post owner, `403 Forbidden` for unrelated user |
+| Expected status | `204 No Content` |
 
 Request body:
 
@@ -1004,8 +1071,8 @@ Request body:
 
 Expected result:
 
-- For current QA: mark as failed requirement or defect because endpoint is missing.
-- For corrected implementation: author or post owner can delete; unrelated authenticated users cannot delete.
+- Comment author can delete their own comment.
+- Comment no longer appears in `GET {{baseUrl}}/posts/{{postId}}/comments`.
 
 Database verification:
 
@@ -1013,8 +1080,98 @@ Database verification:
 SELECT *
 FROM post_comments
 WHERE comment_id = 'PASTE_COMMENT_UUID';
--- Current implementation: row remains.
--- Required implementation after fix: row removed only when requester is comment author or post owner.
+-- Expected: 0 rows
+```
+
+### SC-27A: Successful Comment Delete - Post Owner Moderation
+
+Prerequisite: User B comments on a post owned by User A. Set `{{accessToken}}` to User A's token.
+
+| Field | Value |
+|---|---|
+| Method & URL | `DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}}` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Expected status | `204 No Content` |
+
+Request body:
+
+```json
+{}
+```
+
+Expected result:
+
+- Post owner can delete another user's comment under their own post.
+- Comment is removed.
+
+Database verification:
+
+```sql
+SELECT COUNT(*)
+FROM post_comments
+WHERE comment_id = 'PASTE_COMMENT_UUID';
+-- Expected: 0
+```
+
+### SC-27B: Failed Comment Delete - Unrelated User
+
+Prerequisite: User C is neither the comment author nor the post author. Set `{{accessToken}}` to User C's token.
+
+| Field | Value |
+|---|---|
+| Method & URL | `DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}}` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Expected status | `403 Forbidden` |
+
+Request body:
+
+```json
+{}
+```
+
+Expected result:
+
+- API rejects the delete request.
+- Comment remains in the database.
+
+Database verification:
+
+```sql
+SELECT COUNT(*)
+FROM post_comments
+WHERE comment_id = 'PASTE_COMMENT_UUID';
+-- Expected: 1
+```
+
+### SC-27C: Comment Like Toggle
+
+| Field | Value |
+|---|---|
+| Method & URL | `POST {{baseUrl}}/posts/{{postId}}/comments/{{commentId}}/likes` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Expected status | First request: `200 OK`; second request: `200 OK` |
+
+Request body:
+
+```json
+{}
+```
+
+Expected result:
+
+- First request creates a comment like and returns `likedByCurrentUser = true`.
+- Second request removes the comment like and returns `likedByCurrentUser = false`.
+- `likeCount` reflects the current number of likes.
+
+Database verification:
+
+```sql
+SELECT COUNT(*)
+FROM comment_likes
+WHERE comment_id = 'PASTE_COMMENT_UUID'
+  AND user_id = 'PASTE_USER_UUID';
+-- Expected after first toggle: 1
+-- Expected after second toggle: 0
 ```
 
 ## 8. Module 5: Job & Filtering
@@ -1192,8 +1349,8 @@ Run these checks after the module tests:
 
 | ID | Defect |
 |---|---|
-| DEF-01 | Comment deletion requirement is not implemented in the exposed API. |
-| DEF-02 | Post edit/delete requirement is mentioned in SRS but no API endpoint exists. |
+| DEF-01 | Reserved - comment deletion requirement implemented after Task-6 enhancement. |
+| DEF-02 | Reserved - post edit/delete requirement implemented after Task-5 enhancement. |
 | DEF-03 | SRS describes same-name community behavior inconsistently with current implementation; current API enforces unique community name and generated UUID. |
 | DEF-04 | SMTP forgotten-password test depends on valid mail environment variables; if mail is not configured, expected result becomes `502 Bad Gateway` from email delivery failure. |
 

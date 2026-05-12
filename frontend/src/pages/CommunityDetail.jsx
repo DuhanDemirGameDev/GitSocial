@@ -183,7 +183,16 @@ function CommunityDetail() {
 
           <div className="space-y-5">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard
+                key={post.id}
+                post={post}
+                onPostUpdated={(updatedPost) => {
+                  setPosts((current) => current.map((item) => item.id === updatedPost.id ? updatedPost : item));
+                }}
+                onPostDeleted={(postId) => {
+                  setPosts((current) => current.filter((item) => item.id !== postId));
+                }}
+              />
             ))}
           </div>
 

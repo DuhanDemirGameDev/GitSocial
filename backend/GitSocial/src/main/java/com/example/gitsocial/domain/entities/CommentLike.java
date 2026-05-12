@@ -9,9 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.Size;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,16 +18,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
 @Table(
-        name = "post_comments",
+        name = "comment_likes",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_comment_likes_comment_user", columnNames = {"comment_id", "user_id"})
+        },
         indexes = {
-                @Index(name = "idx_post_comments_post_created", columnList = "post_id, created_at"),
-                @Index(name = "idx_post_comments_user_id", columnList = "user_id")
+                @Index(name = "idx_comment_likes_comment_id", columnList = "comment_id"),
+                @Index(name = "idx_comment_likes_user_id", columnList = "user_id")
         }
 )
 @Getter
@@ -36,30 +36,22 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Comment {
+public class CommentLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "comment_id", updatable = false, nullable = false)
+    @Column(name = "comment_like_id", updatable = false, nullable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "post_id", nullable = false)
-    private Post post;
+    @JoinColumn(name = "comment_id", nullable = false)
+    private Comment comment;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Size(max = 500)
-    @Column(name = "content", nullable = false, length = 500)
-    private String content;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
-
-    @OneToMany(mappedBy = "comment", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @Builder.Default
-    private Set<CommentLike> likes = new HashSet<>();
 }

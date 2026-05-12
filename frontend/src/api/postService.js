@@ -40,6 +40,15 @@ export const postService = {
         return response.data;
     },
 
+    updatePost: async (postId, content) => {
+        const response = await api.put(`/posts/${postId}`, { content });
+        return response.data;
+    },
+
+    deletePost: async (postId) => {
+        await api.delete(`/posts/${postId}`);
+    },
+
     toggleLike: async (postId) => {
         const response = await api.post(`/posts/${postId}/likes`);
         return response.data;
@@ -55,5 +64,14 @@ export const postService = {
     addComment: async (postId, content) => {
         const response = await api.post(`/posts/${postId}/comments`, { content });
         return response.data;
+    },
+
+    toggleCommentLike: async (postId, commentId) => {
+        const response = await api.post(`/posts/${postId}/comments/${commentId}/likes`);
+        return response.data;
+    },
+
+    deleteComment: async (postId, commentId) => {
+        await api.delete(`/posts/${postId}/comments/${commentId}`);
     },
 };

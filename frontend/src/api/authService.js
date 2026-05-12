@@ -37,6 +37,7 @@ export const authService = {
 
         if (response.data?.accessToken) {
             setAccessToken(response.data.accessToken);
+            currentUser = response.data.user ?? currentUser;
             return true;
         }
 

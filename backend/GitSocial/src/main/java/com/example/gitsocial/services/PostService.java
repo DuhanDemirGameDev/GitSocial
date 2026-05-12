@@ -13,6 +13,10 @@ public interface PostService {
 
     PostResponse createPost(PostRequestDto request, MultipartFile media, User author);
 
+    PostResponse updatePost(UUID postId, PostRequestDto request, User currentUser);
+
+    void deletePost(UUID postId, User currentUser);
+
     Page<PostResponse> getFeed(Pageable pageable, UUID currentUserId);
 
     Page<PostResponse> getCommunityPosts(UUID communityId, Pageable pageable, UUID currentUserId);

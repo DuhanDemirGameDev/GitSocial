@@ -7,6 +7,8 @@ public record CommentResponse(
         UUID id,
         String content,
         Instant createdAt,
-        UserDto author
+        UserDto author,
+        long likeCount,
+        boolean likedByCurrentUser
 ) {
 }

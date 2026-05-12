@@ -16,7 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -62,6 +66,24 @@ public class PostController {
         int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         Pageable pageable = PageRequest.of(safePage, safeSize);
         return ResponseEntity.ok(postService.getFeed(pageable, currentUser(authentication).getId()));
+    }
+
+    @PutMapping("/{postId}")
+    public ResponseEntity<PostResponse> updatePost(
+            @PathVariable UUID postId,
+            @Validated @RequestBody PostRequestDto request,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(postService.updatePost(postId, request, currentUser(authentication)));
+    }
+
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<Void> deletePost(
+            @PathVariable UUID postId,
+            Authentication authentication
+    ) {
+        postService.deletePost(postId, currentUser(authentication));
+        return ResponseEntity.noContent().build();
     }
 
     private User currentUser(Authentication authentication) {
