@@ -14,4 +14,6 @@ public interface PostService {
     PostResponse createPost(PostRequestDto request, MultipartFile media, User author);
 
     Page<PostResponse> getFeed(Pageable pageable, UUID currentUserId);
+
+    Page<PostResponse> getCommunityPosts(UUID communityId, Pageable pageable, UUID currentUserId);
 }

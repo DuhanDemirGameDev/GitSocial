@@ -10,6 +10,8 @@ public record PostResponse(
         double popularityScore,
         Instant createdAt,
         UserDto author,
+        UUID communityId,
+        String communityName,
         long likeCount,
         long commentCount,
         boolean likedByCurrentUser

@@ -586,6 +586,40 @@ WHERE cm.community_id = 'PASTE_COMMUNITY_UUID'
 -- Expected: 0
 ```
 
+### SC-16A: Community Feed - Paginated Community Posts
+
+Prerequisite: at least one post exists with `community_id = {{communityId}}`.
+
+| Field | Value |
+|---|---|
+| Method & URL | `GET {{baseUrl}}/communities/{{communityId}}/posts?page=0&size=10` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Expected status | `200 OK` |
+
+Request body:
+
+```json
+{}
+```
+
+Expected result:
+
+- Response is a paged result.
+- Every returned post has `communityId = {{communityId}}`.
+- Results are ordered by `popularityScore` descending, then `createdAt` descending.
+- Requests for a non-existing community ID return `404 Not Found`.
+
+Database verification:
+
+```sql
+SELECT post_id, content, community_id, popularity_score, created_at
+FROM posts
+WHERE community_id = 'PASTE_COMMUNITY_UUID'
+ORDER BY popularity_score DESC, created_at DESC
+LIMIT 10;
+-- Expected: rows match GET /communities/{{communityId}}/posts response content and order
+```
+
 ## 6. Module 3: Post & Media Management
 
 ### SC-17: Successful Text-Only Post Creation
@@ -649,6 +683,74 @@ SELECT post_id, content, media_url, popularity_score
 FROM posts
 WHERE content = 'Media upload QA post.';
 -- Expected: media_url is non-null and popularity_score >= 1.0
+```
+
+### SC-18A: Successful Community Post Creation - Member Only
+
+Prerequisite: authenticated user has joined `{{communityId}}`.
+
+| Field | Value |
+|---|---|
+| Method & URL | `POST {{baseUrl}}/posts` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Body type | `form-data` |
+| Expected status | `201 Created` |
+
+Request body:
+
+| Key | Type | Value |
+|---|---|---|
+| `content` | Text | `Community-linked QA post.` |
+| `communityId` | Text | `{{communityId}}` |
+
+Expected result:
+
+- Response contains generated `id`.
+- Response has `communityId = {{communityId}}`.
+- Response includes the community name in `communityName`.
+- Post appears in `GET {{baseUrl}}/communities/{{communityId}}/posts`.
+- Save `id` as `{{postId}}`.
+
+Database verification:
+
+```sql
+SELECT post_id, content, community_id
+FROM posts
+WHERE content = 'Community-linked QA post.';
+-- Expected: 1 row with community_id = PASTE_COMMUNITY_UUID
+```
+
+### SC-18B: Failed Community Post Creation - Non-Member
+
+Prerequisite: authenticated user is not a member of `{{communityId}}`.
+
+| Field | Value |
+|---|---|
+| Method & URL | `POST {{baseUrl}}/posts` |
+| Headers | `Authorization: Bearer {{accessToken}}` |
+| Body type | `form-data` |
+| Expected status | `403 Forbidden` |
+
+Request body:
+
+| Key | Type | Value |
+|---|---|---|
+| `content` | Text | `Unauthorized community post attempt.` |
+| `communityId` | Text | `{{communityId}}` |
+
+Expected result:
+
+- API rejects the request.
+- Error message states that the user does not have permission.
+- No post is inserted for this content.
+
+Database verification:
+
+```sql
+SELECT COUNT(*)
+FROM posts
+WHERE content = 'Unauthorized community post attempt.';
+-- Expected: 0
 ```
 
 ### SC-19: Failed Post Creation - Empty Text and No Media

@@ -1,16 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import CreatePostWidget from '../components/CreatePostWidget';
+import PostCard from '../components/PostCard';
 import { communityService } from '../api/communityService';
+import { postService } from '../api/postService';
 
 function CommunityDetail() {
   const { id } = useParams();
   const [community, setCommunity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState([]);
+  const [postsPage, setPostsPage] = useState(null);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [postsError, setPostsError] = useState('');
 
   useEffect(() => {
     loadCommunity();
+    loadPosts(0, false);
   }, [id]);
 
   async function loadCommunity() {
@@ -24,6 +33,26 @@ function CommunityDetail() {
       setError(err.response?.data?.message || 'Community could not be loaded.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadPosts(nextPage = 0, append = false) {
+    append ? setLoadingMorePosts(true) : setLoadingPosts(true);
+    setPostsError('');
+
+    try {
+      const response = await postService.getCommunityPosts(id, {
+        page: nextPage,
+        size: 10,
+      });
+
+      setPosts((current) => append ? [...current, ...response.content] : response.content);
+      setPostsPage(response);
+    } catch (err) {
+      setPostsError(err.response?.data?.message || 'Community posts could not be loaded.');
+    } finally {
+      setLoadingPosts(false);
+      setLoadingMorePosts(false);
     }
   }
 
@@ -126,14 +155,52 @@ function CommunityDetail() {
               </p>
             </div>
           </div>
-
-          <div className="mt-6 bg-gray-900/50 border border-gray-700/60 rounded-xl p-4">
-            <p className="text-sm text-gray-400">
-              Community-specific posts will be connected here in a later iteration. For now, this page verifies creation, membership, role assignment, and member counts.
-            </p>
-          </div>
         </div>
       </article>
+
+      <CreatePostWidget
+        communityId={id}
+        disabled={!community.joinedByCurrentUser}
+        onPostCreated={() => loadPosts(0, false)}
+      />
+
+      {postsError && (
+        <div className="bg-red-500/10 border border-red-500/40 text-red-300 text-sm rounded-xl p-4">
+          {postsError}
+        </div>
+      )}
+
+      {loadingPosts ? (
+        <div className="text-gray-400 text-center py-10">Loading community posts...</div>
+      ) : (
+        <>
+          {posts.length === 0 && !postsError && (
+            <div className="bg-gray-800/70 border border-gray-700/60 rounded-2xl p-8 text-center">
+              <p className="text-gray-300 font-bold">No community posts yet.</p>
+              <p className="text-gray-500 text-sm mt-1">Members can start the conversation here.</p>
+            </div>
+          )}
+
+          <div className="space-y-5">
+            {posts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
+
+          {postsPage && !postsPage.last && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => loadPosts(postsPage.number + 1, true)}
+                disabled={loadingMorePosts}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold transition-all"
+              >
+                {loadingMorePosts ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

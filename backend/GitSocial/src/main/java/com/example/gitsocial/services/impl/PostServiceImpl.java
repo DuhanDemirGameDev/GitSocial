@@ -3,9 +3,13 @@ package com.example.gitsocial.services.impl;
 import com.example.gitsocial.domain.dto.PostRequestDto;
 import com.example.gitsocial.domain.dto.PostResponse;
 import com.example.gitsocial.domain.dto.UserDto;
+import com.example.gitsocial.domain.entities.Community;
 import com.example.gitsocial.domain.entities.Post;
 import com.example.gitsocial.domain.entities.User;
+import com.example.gitsocial.exception.ResourceNotFoundException;
 import com.example.gitsocial.repositories.CommentRepository;
+import com.example.gitsocial.repositories.CommunityMemberRepository;
+import com.example.gitsocial.repositories.CommunityRepository;
 import com.example.gitsocial.repositories.LikeRepository;
 import com.example.gitsocial.repositories.PostRepository;
 import com.example.gitsocial.services.CloudinaryService;
@@ -14,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +37,8 @@ public class PostServiceImpl implements PostService {
     private final CloudinaryService cloudinaryService;
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
+    private final CommunityRepository communityRepository;
+    private final CommunityMemberRepository communityMemberRepository;
 
     @Value("${app.cloudinary.upload-timeout-ms}")
     private long uploadTimeoutMs;
@@ -41,17 +48,21 @@ public class PostServiceImpl implements PostService {
     public PostResponse createPost(PostRequestDto request, MultipartFile media, User author) {
         String content = normalizeContent(request.content());
         boolean hasMedia = media != null && !media.isEmpty();
+        String requestedMediaUrl = normalizeMediaUrl(request.mediaUrl());
+        boolean hasMediaUrl = requestedMediaUrl != null;
 
-        if ((content == null || content.isBlank()) && !hasMedia) {
+        if ((content == null || content.isBlank()) && !hasMedia && !hasMediaUrl) {
             throw new IllegalArgumentException("Post must include text content, media, or both.");
         }
 
-        String mediaUrl = hasMedia ? uploadMedia(media) : null;
+        Community community = resolveCommunity(request.communityId(), author.getId());
+        String mediaUrl = hasMedia ? uploadMedia(media) : requestedMediaUrl;
 
         Post post = Post.builder()
                 .content(content)
                 .mediaUrl(mediaUrl)
                 .author(author)
+                .community(community)
                 .createdAt(Instant.now())
                 .popularityScore(calculateInitialPopularityScore(content, mediaUrl))
                 .build();
@@ -64,6 +75,32 @@ public class PostServiceImpl implements PostService {
     public Page<PostResponse> getFeed(Pageable pageable, UUID currentUserId) {
         return postRepository.findAllByOrderByPopularityScoreDescCreatedAtDesc(pageable)
                 .map(post -> toResponse(post, currentUserId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PostResponse> getCommunityPosts(UUID communityId, Pageable pageable, UUID currentUserId) {
+        if (!communityRepository.existsById(communityId)) {
+            throw new ResourceNotFoundException("Community not found.");
+        }
+
+        return postRepository.findByCommunityIdOrderByPopularityScoreDescCreatedAtDesc(communityId, pageable)
+                .map(post -> toResponse(post, currentUserId));
+    }
+
+    private Community resolveCommunity(UUID communityId, UUID authorId) {
+        if (communityId == null) {
+            return null;
+        }
+
+        Community community = communityRepository.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found."));
+
+        if (!communityMemberRepository.existsByCommunityIdAndUserId(communityId, authorId)) {
+            throw new AccessDeniedException("Only community members can post in this community.");
+        }
+
+        return community;
     }
 
     private String uploadMedia(MultipartFile media) {
@@ -106,8 +143,18 @@ public class PostServiceImpl implements PostService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    private String normalizeMediaUrl(String mediaUrl) {
+        if (mediaUrl == null) {
+            return null;
+        }
+
+        String trimmed = mediaUrl.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private PostResponse toResponse(Post post, UUID currentUserId) {
         User author = post.getAuthor();
+        Community community = post.getCommunity();
         UserDto authorDto = new UserDto(
                 author.getId(),
                 author.getFirstName(),
@@ -126,6 +173,8 @@ public class PostServiceImpl implements PostService {
                 post.getPopularityScore(),
                 post.getCreatedAt(),
                 authorDto,
+                community == null ? null : community.getId(),
+                community == null ? null : community.getName(),
                 likeCount,
                 commentCount,
                 likedByCurrentUser

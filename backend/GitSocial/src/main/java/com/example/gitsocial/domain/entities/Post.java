@@ -12,6 +12,7 @@ import java.util.UUID;
         name = "posts",
         indexes = {
                 @Index(name = "idx_posts_author_id", columnList = "author_id"),
+                @Index(name = "idx_posts_community_id", columnList = "community_id"),
                 @Index(name = "idx_posts_feed_order", columnList = "popularity_score, created_at")
         }
 )
@@ -45,4 +46,8 @@ public class Post {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
 }

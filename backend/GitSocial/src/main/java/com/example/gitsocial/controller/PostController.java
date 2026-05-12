@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/posts")
 @RequiredArgsConstructor
@@ -38,10 +40,14 @@ public class PostController {
             @RequestParam(name = "content", required = false)
             @Size(max = 1000, message = "Post content can be at most 1000 characters.")
             String content,
+            @RequestParam(name = "mediaUrl", required = false)
+            @Size(max = 2048, message = "Media URL can be at most 2048 characters.")
+            String mediaUrl,
+            @RequestParam(name = "communityId", required = false) UUID communityId,
             @RequestPart(name = "media", required = false) MultipartFile media,
             Authentication authentication
     ) {
-        PostRequestDto request = new PostRequestDto(content);
+        PostRequestDto request = new PostRequestDto(content, mediaUrl, communityId);
         PostResponse response = postService.createPost(request, media, currentUser(authentication));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

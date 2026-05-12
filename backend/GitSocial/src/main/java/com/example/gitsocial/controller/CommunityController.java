@@ -2,11 +2,16 @@ package com.example.gitsocial.controller;
 
 import com.example.gitsocial.domain.dto.CommunityRequest;
 import com.example.gitsocial.domain.dto.CommunityResponse;
+import com.example.gitsocial.domain.dto.PostResponse;
 import com.example.gitsocial.domain.entities.User;
 import com.example.gitsocial.exception.UnauthorizedException;
 import com.example.gitsocial.services.CommunityService;
+import com.example.gitsocial.services.PostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -27,7 +33,10 @@ import java.util.UUID;
 @Validated
 public class CommunityController {
 
+    private static final int MAX_PAGE_SIZE = 20;
+
     private final CommunityService communityService;
+    private final PostService postService;
 
     @PostMapping
     public ResponseEntity<CommunityResponse> createCommunity(
@@ -49,6 +58,19 @@ public class CommunityController {
             Authentication authentication
     ) {
         return ResponseEntity.ok(communityService.getCommunity(id, currentUser(authentication).getId()));
+    }
+
+    @GetMapping("/{id}/posts")
+    public ResponseEntity<Page<PostResponse>> getCommunityPosts(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        return ResponseEntity.ok(postService.getCommunityPosts(id, pageable, currentUser(authentication).getId()));
     }
 
     @PostMapping("/{id}/join")

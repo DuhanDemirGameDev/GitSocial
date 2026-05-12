@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import CreatePostWidget from '../components/CreatePostWidget';
 import PostCard from '../components/PostCard';
 import { postService } from '../api/postService';
 
@@ -63,10 +64,12 @@ function Feed() {
         </div>
       )}
 
+      <CreatePostWidget onPostCreated={() => loadFeed(0, false)} />
+
       {posts.length === 0 && !error && (
         <div className="bg-gray-800/70 border border-gray-700/60 rounded-2xl p-8 text-center">
           <p className="text-gray-300 font-bold">No posts yet.</p>
-          <p className="text-gray-500 text-sm mt-1">Create a post from the backend/API and it will appear here.</p>
+          <p className="text-gray-500 text-sm mt-1">Create the first post and it will appear here.</p>
         </div>
       )}
 
