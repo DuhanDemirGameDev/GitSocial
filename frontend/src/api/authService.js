@@ -1,55 +1,57 @@
+import api, { clearAccessToken, getAccessToken, setAccessToken } from './axiosInstance';
 
-import api from './axiosInstance';
+let currentUser = null;
 
 export const authService = {
-    // 1. Kullanıcı Kayıt Olma İsteği
     register: async (userData) => {
-        try {
-            // Backend'deki Postman'de denediğimiz uca post atıyoruz
-            const response = await api.post('/auth/register', userData);
-            return response.data;
-        } catch (error) {
-            console.error("Kayıt işlemi başarısız:", error);
-            throw error;
-        }
+        const response = await api.post('/auth/register', userData);
+        return response.data;
     },
 
-    // 2. Kullanıcı Giriş Yapma İsteği
     login: async (credentials) => {
+        const response = await api.post('/auth/login', credentials);
+
+        if (response.data?.accessToken) {
+            setAccessToken(response.data.accessToken);
+            currentUser = response.data.user ?? null;
+        }
+
+        return response.data;
+    },
+
+    logout: async () => {
         try {
-            const response = await api.post('/auth/login', credentials);
-            
-            // Eğer giriş başarılıysa ve backend bize token döndüyse:
-            if (response.data && response.data.accessToken) {
-                // Token'ı tarayıcının yerel deposuna (localStorage) kaydet
-                localStorage.setItem('accessToken', response.data.accessToken);
-                // Kullanıcı bilgilerini de kaydedebiliriz
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-            }
-            return response.data;
-        } catch (error) {
-            console.error("Giriş işlemi başarısız:", error);
-            throw error;
+            await api.post('/auth/logout');
+        } finally {
+            clearAccessToken();
+            currentUser = null;
         }
     },
 
-    // 3. Çıkış Yapma İsteği (Token'ı temizle)
-    logout: () => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        // İleride buraya backend'e çıkış yapıldığını bildiren bir istek de eklenebilir
+    getCurrentUser: () => currentUser,
+
+    isAuthenticated: () => Boolean(getAccessToken()),
+
+    refreshSession: async () => {
+        const response = await api.post('/auth/refresh');
+
+        if (response.data?.accessToken) {
+            setAccessToken(response.data.accessToken);
+            return true;
+        }
+
+        clearAccessToken();
+        currentUser = null;
+        return false;
     },
+
     forgotPassword: async (data) => {
-        // data = { email: "ornek@mail.com" }
-        // axios.post yerine api.post yapıyoruz!
         const response = await api.post('/auth/forgot-password', data);
-        return response.data; 
+        return response.data;
     },
 
     resetPassword: async (data) => {
-        // data = { token: "...", newPassword: "..." }
-        // axiosInstance.post yerine api.post yapıyoruz!
         const response = await api.post('/auth/reset-password', data);
         return response.data;
-    }
+    },
 };

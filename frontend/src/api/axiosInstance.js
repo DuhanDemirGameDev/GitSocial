@@ -1,54 +1,76 @@
 import axios from 'axios';
 
-// 1. Temel Axios Örneğini (Instance) Oluşturuyoruz
 const api = axios.create({
-    baseURL: 'http://localhost:8080', // Backend sunucumuzun adresi
+    baseURL: 'http://localhost:8080',
     headers: {
         'Content-Type': 'application/json',
     },
-    // SRS belgesindeki [GitS_Sec_2] kuralı gereği HttpOnly cookie (Refresh Token) 
-    // kullanacağımız için kimlik bilgilerini isteklerle taşımaya izin veriyoruz.
-    withCredentials: true 
+    withCredentials: true,
 });
 
-// 2. İSTEK (REQUEST) GÜMRÜĞÜ
-// React'ten backend'e giden her istek, yola çıkmadan hemen ÖNCE buraya uğrar.
+let accessToken = null;
+let refreshRequest = null;
+
+export const setAccessToken = (token) => {
+    accessToken = token;
+};
+
+export const clearAccessToken = () => {
+    accessToken = null;
+};
+
+export const getAccessToken = () => accessToken;
+
 api.interceptors.request.use(
     (config) => {
-        // İleride giriş yaptığımızda Access Token'ı localStorage'a kaydedeceğiz. Şimdi oradan okuyoruz.
-        const token = localStorage.getItem('accessToken');
-        
-        // Eğer cebimizde (localStorage) token varsa, bunu giden isteğin "Authorization" başlığına ekle
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        const isAuthRequest = config.url?.startsWith('/auth/');
+
+        if (accessToken && !isAuthRequest) {
+            config.headers.Authorization = `Bearer ${accessToken}`;
         }
+
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// 3. YANIT (RESPONSE) GÜMRÜĞÜ
-// Backend'den gelen her cevap, React bileşenlerine ulaşmadan ÖNCE buraya uğrar.
 api.interceptors.response.use(
-    (response) => {
-        // Cevap başarılıysa (200 OK, 201 Created vb.) hiç dokunmadan geçir
-        return response;
-    },
-    (error) => {
-        // Eğer backend bize 401 Unauthorized (Yetkisiz) dönerse (Token süresi bitmiş veya yanlışsa)
-        if (error.response && error.response.status === 401) {
-            console.error("Oturum süresi doldu veya yetkisiz erişim!");
-            
-            // Şimdilik token'ı temizleyelim. İlerleyen aşamalarda buraya 
-            // "Kullanıcıyı Login sayfasına yönlendir" mantığını ekleyeceğiz.
-            localStorage.removeItem('accessToken');
-            
-            // Not: Refresh token mantığını kurduğumuzda, yeni access token alma 
-            // kodlarını da tam olarak bu bloğun içine yazacağız.
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+        const status = error.response?.status;
+        const isAuthRequest = originalRequest?.url?.startsWith('/auth/');
+
+        if (status !== 401 || originalRequest?._retry || isAuthRequest) {
+            return Promise.reject(error);
         }
-        return Promise.reject(error);
+
+        originalRequest._retry = true;
+
+        try {
+            if (!refreshRequest) {
+                refreshRequest = api.post('/auth/refresh');
+            }
+
+            const response = await refreshRequest;
+            const newAccessToken = response.data?.accessToken;
+
+            if (!newAccessToken) {
+                clearAccessToken();
+                return Promise.reject(error);
+            }
+
+            setAccessToken(newAccessToken);
+            originalRequest.headers = originalRequest.headers ?? {};
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+            return api(originalRequest);
+        } catch (refreshError) {
+            clearAccessToken();
+            return Promise.reject(refreshError);
+        } finally {
+            refreshRequest = null;
+        }
     }
 );
 
