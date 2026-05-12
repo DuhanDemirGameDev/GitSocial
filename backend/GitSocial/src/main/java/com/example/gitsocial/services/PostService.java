@@ -7,9 +7,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 public interface PostService {
 
     PostResponse createPost(PostRequestDto request, MultipartFile media, User author);
 
-    Page<PostResponse> getFeed(Pageable pageable);
+    Page<PostResponse> getFeed(Pageable pageable, UUID currentUserId);
 }

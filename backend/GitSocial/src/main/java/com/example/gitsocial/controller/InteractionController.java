@@ -1,61 +1,70 @@
 package com.example.gitsocial.controller;
 
-import com.example.gitsocial.domain.dto.PostRequestDto;
-import com.example.gitsocial.domain.dto.PostResponse;
+import com.example.gitsocial.domain.dto.CommentRequest;
+import com.example.gitsocial.domain.dto.CommentResponse;
+import com.example.gitsocial.domain.dto.LikeResponse;
 import com.example.gitsocial.domain.entities.User;
 import com.example.gitsocial.exception.UnauthorizedException;
-import com.example.gitsocial.services.PostService;
-import jakarta.validation.constraints.Size;
+import com.example.gitsocial.services.InteractionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/posts")
+@RequestMapping("/posts/{postId}")
 @RequiredArgsConstructor
 @Validated
-public class PostController {
+public class InteractionController {
 
-    private static final int MAX_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 50;
 
-    private final PostService postService;
+    private final InteractionService interactionService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PostResponse> createPost(
-            @RequestParam(name = "content", required = false)
-            @Size(max = 1000, message = "Post content can be at most 1000 characters.")
-            String content,
-            @RequestPart(name = "media", required = false) MultipartFile media,
+    @PostMapping("/likes")
+    public ResponseEntity<LikeResponse> toggleLike(
+            @PathVariable UUID postId,
             Authentication authentication
     ) {
-        PostRequestDto request = new PostRequestDto(content);
-        PostResponse response = postService.createPost(request, media, currentUser(authentication));
+        User user = currentUser(authentication);
+        return ResponseEntity.ok(interactionService.toggleLike(postId, user.getId()));
+    }
+
+    @PostMapping("/comments")
+    public ResponseEntity<CommentResponse> addComment(
+            @PathVariable UUID postId,
+            @Valid @RequestBody CommentRequest request,
+            Authentication authentication
+    ) {
+        User user = currentUser(authentication);
+        CommentResponse response = interactionService.addComment(postId, user.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/feed")
-    public ResponseEntity<Page<PostResponse>> getFeed(
+    @GetMapping("/comments")
+    public ResponseEntity<Page<CommentResponse>> getComments(
+            @PathVariable UUID postId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            Authentication authentication
+            @RequestParam(defaultValue = "20") int size
     ) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         Pageable pageable = PageRequest.of(safePage, safeSize);
-        return ResponseEntity.ok(postService.getFeed(pageable, currentUser(authentication).getId()));
+        return ResponseEntity.ok(interactionService.getCommentsByPost(postId, pageable));
     }
 
     private User currentUser(Authentication authentication) {

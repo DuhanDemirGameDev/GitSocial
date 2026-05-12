@@ -9,6 +9,9 @@ public record PostResponse(
         String mediaUrl,
         double popularityScore,
         Instant createdAt,
-        UserDto author
+        UserDto author,
+        long likeCount,
+        long commentCount,
+        boolean likedByCurrentUser
 ) {
 }

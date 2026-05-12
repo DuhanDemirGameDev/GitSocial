@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Feed from './pages/Feed';
 import DashboardLayout from './layouts/DashboardLayout';
 import { GuestRoute, ProtectedRoute } from './components/ProtectedRoute';
 
@@ -21,10 +22,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
-            <Route
-              path="/"
-              element={<div className="text-gray-300">Welcome! The feed will be here soon.</div>}
-            />
+            <Route path="/" element={<Feed />} />
           </Route>
         </Route>
 
