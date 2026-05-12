@@ -5,6 +5,9 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Feed from './pages/Feed';
+import CommunityDetail from './pages/CommunityDetail';
+import CommunityList from './pages/CommunityList';
+import CreateCommunity from './pages/CreateCommunity';
 import DashboardLayout from './layouts/DashboardLayout';
 import { GuestRoute, ProtectedRoute } from './components/ProtectedRoute';
 
@@ -23,6 +26,9 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Feed />} />
+            <Route path="/communities" element={<CommunityList />} />
+            <Route path="/communities/new" element={<CreateCommunity />} />
+            <Route path="/communities/:id" element={<CommunityDetail />} />
           </Route>
         </Route>
 
