@@ -43,7 +43,7 @@ public class CommunityServiceImpl implements CommunityService {
         Community community = Community.builder()
                 .name(name)
                 .description(normalizeDescription(request.description()))
-                .isPublic(request.isPublic())
+                .isPublic(resolveIsPublic(request.isPublic()))
                 .createdAt(Instant.now())
                 .build();
 
@@ -193,6 +193,7 @@ public class CommunityServiceImpl implements CommunityService {
                 community.getName(),
                 community.getDescription(),
                 community.getCreatedAt(),
+                community.isPublic(),
                 communityMemberRepository.countByCommunityId(community.getId()),
                 membership != null,
                 membership == null ? null : membership.getRole()
@@ -210,6 +211,10 @@ public class CommunityServiceImpl implements CommunityService {
 
         String trimmed = description.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean resolveIsPublic(Boolean isPublic) {
+        return isPublic == null || isPublic;
     }
 
     @Override

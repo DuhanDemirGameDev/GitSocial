@@ -10,6 +10,7 @@ public record CommunityResponse(
         String name,
         String description,
         Instant createdAt,
+        boolean isPublic,
         long memberCount,
         boolean joinedByCurrentUser,
         CommunityRole currentUserRole

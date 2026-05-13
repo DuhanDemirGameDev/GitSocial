@@ -5,6 +5,7 @@ import { communityService } from '../api/communityService';
 function CreateCommunity() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ function CreateCommunity() {
       const community = await communityService.create({
         name,
         description,
+        isPublic,
       });
       navigate(`/communities/${community.id}`, { replace: true });
     } catch (err) {
@@ -68,6 +70,16 @@ function CreateCommunity() {
             className="w-full px-4 py-3 rounded-xl bg-gray-900/70 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
           />
         </div>
+
+        <label className="flex items-center gap-3 text-sm font-bold text-gray-300">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(event) => setIsPublic(event.target.checked)}
+            className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-blue-600 focus:ring-blue-500"
+          />
+          Public community
+        </label>
 
         <button
           type="submit"

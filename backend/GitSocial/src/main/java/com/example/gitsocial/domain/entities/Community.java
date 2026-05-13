@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.Size;
@@ -61,7 +62,14 @@ public class Community {
     @Builder.Default
     private Set<CommunityMember> members = new HashSet<>();
 
-    @Column(name = "is_public", nullable = false)
+    @Column(name = "is_public", nullable = false, columnDefinition = "boolean default true")
     @Builder.Default
     private boolean isPublic = true; // Varsayılan olarak herkes katılabilir
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
 }

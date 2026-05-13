@@ -11,6 +11,6 @@ public record CommunityRequest(
         @Size(max = 1000, message = "Community description can be at most 1000 characters.")
         String description,
 
-        boolean isPublic
+        Boolean isPublic
 ) {
 }
