@@ -2,6 +2,7 @@ package com.example.gitsocial.controller;
 
 import com.example.gitsocial.domain.dto.CommunityRequest;
 import com.example.gitsocial.domain.dto.CommunityResponse;
+import com.example.gitsocial.domain.dto.JoinRequestDTO;
 import com.example.gitsocial.domain.dto.PostResponse;
 import com.example.gitsocial.domain.entities.User;
 import com.example.gitsocial.exception.UnauthorizedException;
@@ -16,13 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -95,5 +90,46 @@ public class CommunityController {
         }
 
         return user;
+    }
+
+    @PutMapping("/{id}/members/{userId}/role")
+    public ResponseEntity<CommunityResponse> assignRole(
+            @PathVariable UUID id,
+            @PathVariable UUID userId,
+            @RequestParam com.example.gitsocial.domain.entities.CommunityRole role,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(communityService.assignRole(id, userId, role, currentUser(authentication).getId()));
+    }
+
+    @PatchMapping("/{id}/settings")
+    public ResponseEntity<CommunityResponse> updateSettings(
+            @PathVariable UUID id,
+            @RequestParam boolean isPublic,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(communityService.updateJoinSetting(id, isPublic, currentUser(authentication).getId()));
+    }
+
+    // Bekleyen İstekleri Listele
+    @GetMapping("/{id}/requests")
+    public ResponseEntity<List<JoinRequestDTO>> getPendingRequests(
+            @PathVariable UUID id,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(communityService.getPendingRequests(id, currentUser(authentication).getId()));
+    }
+
+    // İsteği Cevapla
+    @PostMapping("/{id}/requests/{requestId}")
+    public ResponseEntity<String> respondToRequest(
+            @PathVariable UUID id,
+            @PathVariable UUID requestId,
+            @RequestParam boolean approve,
+            Authentication authentication
+    ) {
+        communityService.respondToJoinRequest(id, requestId, approve, currentUser(authentication).getId());
+        String message = approve ? "İstek onaylandı." : "İstek reddedildi.";
+        return ResponseEntity.ok(message);
     }
 }

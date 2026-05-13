@@ -9,6 +9,7 @@ public record CommentResponse(
         Instant createdAt,
         UserDto author,
         long likeCount,
-        boolean likedByCurrentUser
+        boolean likedByCurrentUser,
+        boolean isPublic
 ) {
 }

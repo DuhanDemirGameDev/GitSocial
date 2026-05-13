@@ -2,12 +2,12 @@ package com.example.gitsocial.services.impl;
 
 import com.example.gitsocial.domain.dto.CommunityRequest;
 import com.example.gitsocial.domain.dto.CommunityResponse;
-import com.example.gitsocial.domain.entities.Community;
-import com.example.gitsocial.domain.entities.CommunityMember;
-import com.example.gitsocial.domain.entities.CommunityRole;
-import com.example.gitsocial.domain.entities.User;
+import com.example.gitsocial.domain.dto.JoinRequestDTO;
+import com.example.gitsocial.domain.entities.*;
 import com.example.gitsocial.exception.ResourceAlreadyExistsException;
 import com.example.gitsocial.exception.ResourceNotFoundException;
+import com.example.gitsocial.exception.UnauthorizedException;
+import com.example.gitsocial.repositories.CommunityJoinRequestRepository;
 import com.example.gitsocial.repositories.CommunityMemberRepository;
 import com.example.gitsocial.repositories.CommunityRepository;
 import com.example.gitsocial.repositories.UserRepository;
@@ -28,6 +28,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final CommunityRepository communityRepository;
     private final CommunityMemberRepository communityMemberRepository;
     private final UserRepository userRepository;
+    private final CommunityJoinRequestRepository communityJoinRequestRepository;
 
     @Override
     @Transactional
@@ -42,6 +43,7 @@ public class CommunityServiceImpl implements CommunityService {
         Community community = Community.builder()
                 .name(name)
                 .description(normalizeDescription(request.description()))
+                .isPublic(request.isPublic())
                 .createdAt(Instant.now())
                 .build();
 
@@ -78,7 +80,12 @@ public class CommunityServiceImpl implements CommunityService {
         Community community = findCommunity(communityId);
         User user = findUser(userId);
 
-        if (!communityMemberRepository.existsByCommunityIdAndUserId(communityId, userId)) {
+        if (communityMemberRepository.existsByCommunityIdAndUserId(communityId, userId)) {
+            throw new ResourceAlreadyExistsException("Zaten bu topluluğun bir üyesisiniz.");
+        }
+
+        // KURAL KONTROLÜ: Topluluk herkese açık mı?
+        if (community.isPublic()) {
             CommunityMember member = CommunityMember.builder()
                     .community(community)
                     .user(user)
@@ -86,9 +93,68 @@ public class CommunityServiceImpl implements CommunityService {
                     .joinedAt(Instant.now())
                     .build();
             communityMemberRepository.save(member);
+        } else {
+            // Gizliyse, katılım isteği oluştur!
+            if (communityJoinRequestRepository.existsByCommunityIdAndUserIdAndStatus(communityId, userId, RequestStatus.PENDING)) {
+                throw new ResourceAlreadyExistsException("Zaten bekleyen bir katılım isteğiniz bulunuyor.");
+            }
+
+            CommunityJoinRequest request = CommunityJoinRequest.builder()
+                    .community(community)
+                    .user(user)
+                    .status(RequestStatus.PENDING)
+                    .build();
+            communityJoinRequestRepository.save(request);
         }
 
         return toResponse(community, userId);
+    }
+
+    // YÖNETİCİLER İÇİN YENİ METOT: Bekleyen İstekleri Getir
+    @Transactional(readOnly = true)
+    public List<JoinRequestDTO> getPendingRequests(UUID communityId, UUID requesterId) {
+        checkAdminRights(communityId, requesterId); // Aşağıda bu yardımcı metodu da yazacağız
+
+        return communityJoinRequestRepository.findByCommunityIdAndStatus(communityId, RequestStatus.PENDING)
+                .stream()
+                .map(req -> new JoinRequestDTO(
+                        req.getId(), req.getUser().getId(), req.getUser().getFirstName(), req.getUser().getLastName(), req.getCreatedAt()))
+                .toList();
+    }
+
+    // YÖNETİCİLER İÇİN YENİ METOT: İsteği Onayla / Reddet
+    @Transactional
+    public void respondToJoinRequest(UUID communityId, UUID requestId, boolean isApproved, UUID requesterId) {
+        checkAdminRights(communityId, requesterId);
+
+        CommunityJoinRequest request = communityJoinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Katılım isteği bulunamadı."));
+
+        if (!request.getCommunity().getId().equals(communityId)) {
+            throw new IllegalArgumentException("Bu istek bu topluluğa ait değil.");
+        }
+
+        if (isApproved) {
+            request.setStatus(RequestStatus.APPROVED);
+            CommunityMember newMember = CommunityMember.builder()
+                    .community(request.getCommunity())
+                    .user(request.getUser())
+                    .role(CommunityRole.MEMBER)
+                    .build();
+            communityMemberRepository.save(newMember);
+        } else {
+            request.setStatus(RequestStatus.REJECTED);
+        }
+        communityJoinRequestRepository.save(request);
+    }
+
+    // Yardımcı Metot: Yetki Kontrolü
+    private void checkAdminRights(UUID communityId, UUID userId) {
+        CommunityMember membership = communityMemberRepository.findByCommunityIdAndUserId(communityId, userId)
+                .orElseThrow(() -> new UnauthorizedException("Yetkisiz erişim."));
+        if (membership.getRole() == CommunityRole.MEMBER) {
+            throw new UnauthorizedException("Bu işlemi yapmak için Kurucu veya Yönetici olmalısınız.");
+        }
     }
 
     @Override
@@ -144,5 +210,50 @@ public class CommunityServiceImpl implements CommunityService {
 
         String trimmed = description.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    @Override
+    @Transactional
+    public CommunityResponse assignRole(UUID communityId, UUID targetUserId, CommunityRole newRole, UUID requesterId) {
+        Community community = findCommunity(communityId);
+
+        // 1. İsteği yapan kullanıcının bu gruptaki rolünü bulalım
+        CommunityMember requesterMembership = communityMemberRepository.findByCommunityIdAndUserId(communityId, requesterId)
+                .orElseThrow(() -> new UnauthorizedException("Sadece topluluk üyeleri yetki ataması yapabilir."));
+
+        // 2. KURAL: Sadece Kurucu (FOUNDER) yetki verebilir
+        if (requesterMembership.getRole() != CommunityRole.FOUNDER) {
+            throw new UnauthorizedException("Yalnızca topluluk kurucusu yetki ataması yapabilir.");
+        }
+
+        // 3. Yetkisi değiştirilecek hedef kullanıcıyı bulalım
+        CommunityMember targetMembership = communityMemberRepository.findByCommunityIdAndUserId(communityId, targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hedef kullanıcı bu topluluğun bir üyesi değil."));
+
+        // 4. KURAL: Kurucunun kendi yetkisi değiştirilemez
+        if (targetMembership.getRole() == CommunityRole.FOUNDER) {
+            throw new IllegalArgumentException("Topluluk kurucusunun yetkisi değiştirilemez.");
+        }
+
+        // 5. Yetkiyi güncelle ve kaydet
+        targetMembership.setRole(newRole);
+        communityMemberRepository.save(targetMembership);
+
+        // Topluluğun güncel durumunu döndür
+        return toResponse(community, requesterId);
+    }
+    @Transactional
+    public CommunityResponse updateJoinSetting(UUID communityId, boolean isPublic, UUID requesterId) {
+        Community community = findCommunity(communityId);
+        CommunityMember member = communityMemberRepository.findByCommunityIdAndUserId(communityId, requesterId)
+                .orElseThrow(() -> new UnauthorizedException("Üye değilsiniz."));
+
+        // Sadece FOUNDER veya ADMIN bu ayarı değiştirebilir [cite: 51]
+        if (member.getRole() == CommunityRole.MEMBER) {
+            throw new UnauthorizedException("Bu ayarı değiştirme yetkiniz yok.");
+        }
+
+        community.setPublic(isPublic);
+        return toResponse(communityRepository.save(community), requesterId);
     }
 }

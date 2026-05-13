@@ -165,13 +165,16 @@ public class InteractionServiceImpl implements InteractionService {
         boolean likedByCurrentUser = currentUserId != null
                 && commentLikeRepository.existsByCommentIdAndUserId(comment.getId(), currentUserId);
 
+        boolean isAuthor = currentUserId != null && currentUserId.equals(author.getId());
+
         return new CommentResponse(
                 comment.getId(),
                 comment.getContent(),
                 comment.getCreatedAt(),
                 authorDto,
                 likeCount,
-                likedByCurrentUser
+                likedByCurrentUser,
+                isAuthor
         );
     }
 }
