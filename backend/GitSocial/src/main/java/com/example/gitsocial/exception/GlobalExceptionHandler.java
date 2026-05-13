@@ -2,6 +2,8 @@ package com.example.gitsocial.exception;
 
 import com.example.gitsocial.domain.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -9,10 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.BindException;
+import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,16 +32,55 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
-        Map<String, String> validationErrors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                validationErrors.put(error.getField(), resolveValidationMessage(error))
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation failed. Please check the submitted fields.",
+                request,
+                extractFieldErrors(ex.getBindingResult())
         );
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiErrorResponse> handleBindException(
+            BindException ex,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation failed. Please check the submitted fields.",
+                request,
+                extractFieldErrors(ex.getBindingResult())
+        );
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolationException(
+            ConstraintViolationException ex,
+            HttpServletRequest request
+    ) {
+        Map<String, String> validationErrors = new LinkedHashMap<>();
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            validationErrors.put(resolveViolationFieldName(violation), violation.getMessage());
+        }
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
                 "Validation failed. Please check the submitted fields.",
                 request,
                 validationErrors
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Dosya boyutu 5MB'ı geçemez.",
+                request,
+                null
         );
     }
 
@@ -145,5 +189,19 @@ public class GlobalExceptionHandler {
 
     private String resolveValidationMessage(FieldError error) {
         return error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value";
+    }
+
+    private Map<String, String> extractFieldErrors(BindingResult bindingResult) {
+        Map<String, String> validationErrors = new LinkedHashMap<>();
+        bindingResult.getFieldErrors().forEach(error ->
+                validationErrors.put(error.getField(), resolveValidationMessage(error))
+        );
+        return validationErrors;
+    }
+
+    private String resolveViolationFieldName(ConstraintViolation<?> violation) {
+        String propertyPath = violation.getPropertyPath().toString();
+        int lastSeparator = propertyPath.lastIndexOf('.');
+        return lastSeparator >= 0 ? propertyPath.substring(lastSeparator + 1) : propertyPath;
     }
 }

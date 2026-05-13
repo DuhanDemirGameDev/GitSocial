@@ -167,7 +167,7 @@ public class AuthServiceImpl implements AuthService {
         String resetLink = "http://localhost:5173/reset-password?token=" + token;
 
         // 6. O havalı HTML e-postamızı yolla!
-        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink, token);
     }
 
     @Override
