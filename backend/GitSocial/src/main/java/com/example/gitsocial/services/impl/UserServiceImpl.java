@@ -10,6 +10,7 @@ import com.example.gitsocial.mappers.UserMapper;
 import com.example.gitsocial.repositories.PostRepository;
 import com.example.gitsocial.repositories.UserFollowRepository;
 import com.example.gitsocial.repositories.UserRepository;
+import com.example.gitsocial.services.CloudinaryService;
 import com.example.gitsocial.services.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final UserFollowRepository userFollowRepository;
     private final PostRepository postRepository;
+    private final CloudinaryService cloudinaryService;
 
     @Override
     public UserDto getUserDtoById(UUID id) {
@@ -136,5 +138,23 @@ public class UserServiceImpl implements UserService {
                 isFollowing,
                 posts
         );
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public UserDto uploadProfilePicture(UUID userId, org.springframework.web.multipart.MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı."));
+
+        try {
+            // Cloudinary'e yükle ve 15 saniye içinde cevabı bekle
+            String avatarUrl = cloudinaryService.uploadImageAsync(file).get(15, java.util.concurrent.TimeUnit.SECONDS);
+
+            user.setProfilePictureUrl(avatarUrl);
+            return userMapper.toDto(userRepository.save(user));
+
+        } catch (Exception e) {
+            throw new IllegalStateException("Profil fotoğrafı yüklenirken bir hata oluştu: " + e.getMessage(), e);
+        }
     }
 }

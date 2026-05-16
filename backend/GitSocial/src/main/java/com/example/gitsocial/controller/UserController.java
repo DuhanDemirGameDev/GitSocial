@@ -64,4 +64,13 @@ public class UserController {
 
         return ResponseEntity.ok(userService.getUserProfile(userId, currentUserId, pageable));
     }
+
+    @PostMapping(value = "/profile/avatar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.example.gitsocial.domain.dto.UserDto> uploadProfilePicture(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            Authentication authentication
+    ) {
+        com.example.gitsocial.domain.dto.UserDto updatedUser = userService.uploadProfilePicture(currentUser(authentication).getId(), file);
+        return ResponseEntity.ok(updatedUser);
+    }
 }

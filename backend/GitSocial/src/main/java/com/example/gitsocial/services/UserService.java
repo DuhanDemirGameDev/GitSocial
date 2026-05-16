@@ -12,4 +12,5 @@ public interface UserService {
     void toggleFollow(UUID currentUserId, UUID targetUserId);
     UserDto updateBio(UUID userId, String bio);
     UserProfileResponse getUserProfile(UUID targetUserId, UUID currentUserId, org.springframework.data.domain.Pageable pageable);
+    UserDto uploadProfilePicture(java.util.UUID userId, org.springframework.web.multipart.MultipartFile file);
 }

@@ -27,7 +27,10 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             "image/gif",
             "image/svg+xml",
             "image/tiff",
-            "image/bmp"
+            "image/bmp",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
 
     private final Cloudinary cloudinary;
@@ -48,7 +51,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", uploadFolder,
-                            "resource_type", "image",
+                            "resource_type", "auto",
                             "use_filename", true,
                             "unique_filename", true,
                             "overwrite", false
