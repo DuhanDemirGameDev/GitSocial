@@ -37,7 +37,8 @@ public class UserMapperImpl implements UserMapper {
                 user.getLastName(),
                 user.getEmail(),
                 user.getProfilePictureUrl(),
-                user.getBio()
+                user.getBio(),
+                user.getAccountType()
         );
     }
 }

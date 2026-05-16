@@ -1,6 +1,7 @@
 package com.example.gitsocial.domain.entities;
 
 import com.example.gitsocial.domain.entities.SystemRole;
+import com.example.gitsocial.domain.entities.AccountType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.UUID;
@@ -74,4 +75,9 @@ public class User implements UserDetails {
 
     @Column(name = "bio", length = 200)
     private String bio;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false)
+    @Builder.Default
+    private AccountType accountType = AccountType.INDIVIDUAL;
 }

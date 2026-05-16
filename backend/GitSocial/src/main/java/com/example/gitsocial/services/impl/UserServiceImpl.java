@@ -115,7 +115,8 @@ public class UserServiceImpl implements UserService {
                                 targetUser.getLastName(),
                                 targetUser.getEmail(),
                                 targetUser.getProfilePictureUrl(),
-                                targetUser.getBio()
+                                targetUser.getBio(),
+                                targetUser.getAccountType()
                         ),
                         // 7 ve 8. Parametreler: Topluluk ID ve Adı (Eğer post bir topluluğa aitse)
                         post.getCommunity() != null ? post.getCommunity().getId() : null,

@@ -1,5 +1,7 @@
 package com.example.gitsocial.domain.dto;
 
+import com.example.gitsocial.domain.entities.AccountType;
+
 import java.util.UUID;
 
 public record UserDto(
@@ -8,5 +10,6 @@ public record UserDto(
         String lastName,
         String email,
         String profilePictureUrl,
-        String bio
+        String bio,
+        AccountType accountType
 ) {}

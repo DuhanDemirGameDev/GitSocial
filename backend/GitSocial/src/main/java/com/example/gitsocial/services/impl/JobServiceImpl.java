@@ -103,7 +103,8 @@ public class JobServiceImpl implements JobService {
                 createdBy.getLastName(),
                 createdBy.getEmail(),
                 createdBy.getProfilePictureUrl(),
-                createdBy.getBio()
+                createdBy.getBio(),
+                createdBy.getAccountType()
         );
 
         return new JobResponse(
