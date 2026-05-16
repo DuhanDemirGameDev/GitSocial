@@ -159,7 +159,8 @@ public class InteractionServiceImpl implements InteractionService {
                 author.getFirstName(),
                 author.getLastName(),
                 author.getEmail(),
-                author.getProfilePictureUrl()
+                author.getProfilePictureUrl(),
+                author.getBio()
         );
         long likeCount = commentLikeRepository.countByCommentId(comment.getId());
         boolean likedByCurrentUser = currentUserId != null

@@ -196,7 +196,8 @@ public class PostServiceImpl implements PostService {
                 author.getFirstName(),
                 author.getLastName(),
                 author.getEmail(),
-                author.getProfilePictureUrl()
+                author.getProfilePictureUrl(),
+                author.getBio()
         );
         long likeCount = likeRepository.countByPostId(post.getId());
         long commentCount = commentRepository.countByPostId(post.getId());

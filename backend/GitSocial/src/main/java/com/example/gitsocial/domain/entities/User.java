@@ -71,4 +71,7 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
+    @Column(name = "bio", length = 200)
+    private String bio;
 }

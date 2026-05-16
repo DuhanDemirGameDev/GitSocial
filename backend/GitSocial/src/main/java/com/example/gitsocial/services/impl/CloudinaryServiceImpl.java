@@ -21,6 +21,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
     private static final Set<String> SUPPORTED_CONTENT_TYPES = Set.of(
             "image/jpeg",
+            "image/jpg",
             "image/png",
             "image/webp",
             "image/gif",
