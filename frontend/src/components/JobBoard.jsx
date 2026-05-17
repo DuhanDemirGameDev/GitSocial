@@ -1,74 +1,47 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Briefcase, MapPin, DollarSign, Search, Filter, Globe, Building2, Laptop, PlusCircle } from "lucide-react";
+// YENİ: Kendi axios instance'ımızı import ediyoruz (Dosya yolunu projene göre düzenleyebilirsin)
+import api from '../api/axiosInstance'; 
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 const WORK_MODES = ["REMOTE", "HYBRID", "ONSITE"];
 
-export default function JobBoard({ accessToken }) {
+export default function JobBoard() {
   const [jobs, setJobs] = useState([]);
-  const [page, setPage] = useState({
-    number: 0,
-    size: 20,
-    totalPages: 0,
-    totalElements: 0,
-  });
-  const [filters, setFilters] = useState({
-    title: "",
-    minSalary: "",
-    maxSalary: "",
-    location: "",
-    workMode: "",
-  });
-  const [form, setForm] = useState({
-    title: "",
-    salaryRange: "",
-    location: "",
-    workMode: "REMOTE",
-  });
+  const [page, setPage] = useState({ number: 0, size: 20, totalPages: 0, totalElements: 0 });
+  const [filters, setFilters] = useState({ title: "", minSalary: "", maxSalary: "", location: "", workMode: "" });
+  const [form, setForm] = useState({ title: "", salaryRange: "", location: "", workMode: "REMOTE" });
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const authHeaders = useMemo(
-    () => ({
-      Authorization: `Bearer ${accessToken}`,
-    }),
-    [accessToken]
-  );
+  const [fetchError, setFetchError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
 
   useEffect(() => {
-    if (accessToken) {
-      fetchJobs(0);
-    }
-  }, [accessToken]);
+    fetchJobs(0);
+  }, []);
 
   async function fetchJobs(nextPage = 0) {
     setLoading(true);
-    setMessage("");
+    setFetchError("");
 
-    const params = new URLSearchParams({
-      page: String(nextPage),
-      size: "20",
-    });
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== "") {
-        params.set(key, value);
-      }
-    });
+    // Boş filtreleri temizliyoruz
+    const activeFilters = Object.fromEntries(
+      Object.entries(filters).filter(([key, value]) => value !== "")
+    );
 
     try {
-      const response = await fetch(`${API_URL}/jobs/filter?${params}`, {
-        headers: authHeaders,
+      // YENİ: fetch yerine projeye ait 'api' nesnesini kullanıyoruz. Token otomatik eklenir!
+      const response = await api.get('/jobs/filter', {
+        params: { page: nextPage, size: 20, ...activeFilters }
       });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.message ?? "Jobs could not be loaded.");
-      }
-
+      
+      // Axios veriyi otomatik parse eder, response.data kullanırız
+      const data = response.data;
       setJobs(data.content ?? []);
       setPage(normalizePage(data));
     } catch (error) {
-      setMessage(error.message);
+      setFetchError(error.response?.data?.message || "İş ilanları sunucudan çekilemedi.");
     } finally {
       setLoading(false);
     }
@@ -77,38 +50,25 @@ export default function JobBoard({ accessToken }) {
   async function createJob(event) {
     event.preventDefault();
     setLoading(true);
-    setMessage("");
+    setActionError("");
+    setActionSuccess("");
 
     try {
-      const response = await fetch(`${API_URL}/jobs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: form.title,
-          salaryRange: Number(form.salaryRange),
-          location: form.location,
-          workMode: form.workMode,
-        }),
+      // YENİ: fetch yerine api.post kullanıyoruz!
+      await api.post('/jobs', {
+        title: form.title,
+        salaryRange: Number(form.salaryRange),
+        location: form.location,
+        workMode: form.workMode,
       });
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data?.message ?? "Job could not be created.");
-      }
-
-      setForm({
-        title: "",
-        salaryRange: "",
-        location: "",
-        workMode: "REMOTE",
-      });
-      setMessage("Job posted.");
+      setForm({ title: "", salaryRange: "", location: "", workMode: "REMOTE" });
+      setActionSuccess("İş ilanı başarıyla yayınlandı! 🎉");
+      setShowCreateForm(false);
+      
       await fetchJobs(0);
     } catch (error) {
-      setMessage(error.message);
+      setActionError(error.response?.data?.message || "İş ilanı oluşturulurken bir hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -124,216 +84,227 @@ export default function JobBoard({ accessToken }) {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
+  const getWorkModeConfig = (mode) => {
+    switch (mode) {
+      case "REMOTE": return { icon: Globe, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", label: "Uzaktan" };
+      case "HYBRID": return { icon: Laptop, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20", label: "Hibrit" };
+      case "ONSITE": return { icon: Building2, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", label: "Ofiste" };
+      default: return { icon: Briefcase, color: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/20", label: mode };
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-6 text-zinc-100">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[360px_1fr]">
-        <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
-          <h1 className="text-xl font-semibold">Jobs</h1>
-
-          <form onSubmit={createJob} className="mt-5 grid gap-3">
-            <input
-              name="title"
-              value={form.title}
-              onChange={updateForm}
-              placeholder="Position"
-              className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              required
-            />
-            <input
-              name="salaryRange"
-              value={form.salaryRange}
-              onChange={updateForm}
-              placeholder="Salary"
-              type="number"
-              min="0"
-              className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              required
-            />
-            <input
-              name="location"
-              value={form.location}
-              onChange={updateForm}
-              placeholder="Location"
-              className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              required
-            />
-            <select
-              name="workMode"
-              value={form.workMode}
-              onChange={updateForm}
-              className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              {WORK_MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {formatWorkMode(mode)}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={loading || !accessToken}
-              className="rounded-md bg-emerald-500 px-4 py-2 font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Post Job
-            </button>
-          </form>
-
-          <div className="mt-6 border-t border-zinc-800 pt-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-              Filters
-            </h2>
-            <div className="mt-3 grid gap-3">
-              <input
-                name="title"
-                value={filters.title}
-                onChange={updateFilter}
-                placeholder="Search position"
-                className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  name="minSalary"
-                  value={filters.minSalary}
-                  onChange={updateFilter}
-                  placeholder="Min salary"
-                  type="number"
-                  min="0"
-                  className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <input
-                  name="maxSalary"
-                  value={filters.maxSalary}
-                  onChange={updateFilter}
-                  placeholder="Max salary"
-                  type="number"
-                  min="0"
-                  className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <input
-                name="location"
-                value={filters.location}
-                onChange={updateFilter}
-                placeholder="Location"
-                className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <select
-                name="workMode"
-                value={filters.workMode}
-                onChange={updateFilter}
-                className="rounded-md bg-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="">Any work mode</option>
-                {WORK_MODES.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {formatWorkMode(mode)}
-                  </option>
-                ))}
-              </select>
+    <div className="w-full">
+      <div className="grid lg:grid-cols-[320px_1fr] gap-8 items-start">
+        
+        {/* SOL PANEL: FİLTRELER VE İLAN OLUŞTURMA */}
+        <aside className="space-y-6 lg:sticky top-6">
+          
+          {/* İlan Oluşturma Butonu / Formu */}
+          <div className="bg-gray-800/60 border border-gray-700/50 rounded-2xl p-5 shadow-xl">
+            {!showCreateForm ? (
               <button
-                type="button"
-                onClick={() => fetchJobs(0)}
-                disabled={loading || !accessToken}
-                className="rounded-md bg-zinc-100 px-4 py-2 font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => { setShowCreateForm(true); setActionError(""); setActionSuccess(""); }}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg"
               >
-                Apply Filters
+                <PlusCircle className="w-5 h-5" />
+                Yeni İş İlanı Yayınla
+              </button>
+            ) : (
+              <form onSubmit={createJob} className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-gray-200">İlan Detayları</h3>
+                  <button type="button" onClick={() => setShowCreateForm(false)} className="text-gray-500 hover:text-gray-300 text-sm">İptal</button>
+                </div>
+                
+                <input name="title" value={form.title} onChange={updateForm} placeholder="Pozisyon (Örn: Frontend Dev)" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" required />
+                
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input name="salaryRange" value={form.salaryRange} onChange={updateForm} placeholder="Maaş ($)" type="number" min="0" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" required />
+                  </div>
+                  <select name="workMode" value={form.workMode} onChange={updateForm} className="flex-1 rounded-xl bg-gray-900/80 border border-gray-700 px-3 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors text-gray-200">
+                    <option value="REMOTE">Uzaktan</option>
+                    <option value="HYBRID">Hibrit</option>
+                    <option value="ONSITE">Ofiste</option>
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input name="location" value={form.location} onChange={updateForm} placeholder="Konum (Şehir veya Ülke)" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" required />
+                </div>
+
+                <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all disabled:opacity-50">
+                  {loading ? 'Yayınlanıyor...' : 'Yayınla'}
+                </button>
+              </form>
+            )}
+
+            {actionError && <p className="mt-4 text-sm text-center font-bold text-red-400">{actionError}</p>}
+            {actionSuccess && <p className="mt-4 text-sm text-center font-bold text-emerald-400">{actionSuccess}</p>}
+          </div>
+
+          {/* Filtreleme Paneli */}
+          <div className="bg-gray-800/60 border border-gray-700/50 rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-4 text-gray-300 font-bold">
+              <Filter className="w-5 h-5 text-blue-400" />
+              İlanları Filtrele
+            </div>
+            
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input name="title" value={filters.title} onChange={updateFilter} placeholder="Pozisyon ara..." className="w-full rounded-xl bg-gray-900/80 border border-gray-700 pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors" />
+              </div>
+
+              <div className="flex gap-2">
+                <input name="minSalary" value={filters.minSalary} onChange={updateFilter} placeholder="Min Maaş" type="number" min="0" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors" />
+                <input name="maxSalary" value={filters.maxSalary} onChange={updateFilter} placeholder="Max Maaş" type="number" min="0" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors" />
+              </div>
+
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input name="location" value={filters.location} onChange={updateFilter} placeholder="Konum" className="w-full rounded-xl bg-gray-900/80 border border-gray-700 pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors" />
+              </div>
+
+              <select name="workMode" value={filters.workMode} onChange={updateFilter} className="w-full rounded-xl bg-gray-900/80 border border-gray-700 px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors text-gray-300">
+                <option value="">Tüm Çalışma Modları</option>
+                <option value="REMOTE">Uzaktan (Remote)</option>
+                <option value="HYBRID">Hibrit (Hybrid)</option>
+                <option value="ONSITE">Ofiste (Onsite)</option>
+              </select>
+
+              <button type="button" onClick={() => fetchJobs(0)} disabled={loading} className="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-xl transition-all disabled:opacity-50">
+                Sonuçları Getir
               </button>
             </div>
           </div>
+        </aside>
 
-          {message && <p className="mt-4 text-sm text-emerald-300">{message}</p>}
-        </section>
-
-        <section>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm text-zinc-400">
-              {page.totalElements} listings
-            </p>
-            {loading && <p className="text-sm text-zinc-400">Loading...</p>}
-          </div>
-
-          <div className="grid gap-3">
-            {jobs.map((job) => (
-              <article
-                key={job.id}
-                className="rounded-lg border border-zinc-800 bg-zinc-900 p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">{job.title}</h2>
-                    <p className="mt-1 text-sm text-zinc-400">
-                      {job.location} · {formatWorkMode(job.workMode)}
-                    </p>
-                  </div>
-                  <strong className="rounded-md bg-emerald-500 px-3 py-1 text-sm text-zinc-950">
-                    {formatSalary(job.salaryRange)}
-                  </strong>
-                </div>
-                <p className="mt-4 text-sm text-zinc-500">
-                  Posted by {job.createdBy?.firstName} {job.createdBy?.lastName}
-                </p>
-              </article>
-            ))}
-
-            {!loading && jobs.length === 0 && (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 text-zinc-400">
-                No matching jobs found.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 flex items-center justify-end gap-2">
-            <button
-              onClick={() => fetchJobs(page.number - 1)}
-              disabled={loading || page.number <= 0}
-              className="rounded-md bg-zinc-800 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-zinc-400">
-              Page {page.number + 1} of {Math.max(page.totalPages, 1)}
+        {/* SAĞ PANEL: İŞ İLANLARI LİSTESİ */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+            <h2 className="text-xl font-bold text-gray-200">Güncel İş Fırsatları</h2>
+            <span className="text-sm font-medium bg-gray-800 text-gray-400 px-3 py-1 rounded-full border border-gray-700">
+              {page.totalElements} İlan
             </span>
-            <button
-              onClick={() => fetchJobs(page.number + 1)}
-              disabled={loading || page.number + 1 >= page.totalPages}
-              className="rounded-md bg-zinc-800 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
           </div>
+
+          {fetchError && (
+            <div className="bg-red-500/10 border border-red-500/40 text-red-400 p-4 rounded-xl text-center font-bold">
+              {fetchError}
+            </div>
+          )}
+
+          {loading && jobs.length === 0 ? (
+            <div className="flex justify-center py-10">
+              <span className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {jobs.map((job) => {
+                const modeConfig = getWorkModeConfig(job.workMode);
+                const ModeIcon = modeConfig.icon;
+                const isCompany = job.createdBy?.accountType === 'COMPANY';
+
+                return (
+                  <article key={job.id} className="group bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700/50 hover:border-gray-600 rounded-2xl p-5 transition-all duration-300 flex flex-col md:flex-row gap-5">
+                    
+                    <div className="hidden md:flex flex-shrink-0 w-16 h-16 rounded-2xl bg-gray-900 border border-gray-700 items-center justify-center overflow-hidden">
+                      {job.createdBy?.profilePictureUrl ? (
+                        <img src={job.createdBy.profilePictureUrl} alt="Logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <Briefcase className={`w-8 h-8 ${isCompany ? 'text-blue-500' : 'text-gray-500'}`} />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h2 className="text-lg font-bold text-gray-100 group-hover:text-blue-400 transition-colors truncate">
+                          {job.title}
+                        </h2>
+                        <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
+                          <DollarSign className="w-4 h-4" />
+                          {job.salaryRange.toLocaleString('en-US')}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm mb-3">
+                        <span className="font-semibold text-gray-300">
+                          {job.createdBy?.firstName} {job.createdBy?.lastName}
+                        </span>
+                        {isCompany && (
+                          <span className="text-[10px] font-extrabold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-md border border-blue-500/20">
+                            ŞİRKET
+                          </span>
+                        )}
+                        <span className="text-gray-600">•</span>
+                        <span className="text-gray-500 text-xs">
+                          {new Date(job.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-400 bg-gray-900/50 px-3 py-1 rounded-lg border border-gray-700/50">
+                          <MapPin className="w-4 h-4" />
+                          {job.location}
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg border ${modeConfig.bg} ${modeConfig.border} ${modeConfig.color} font-medium`}>
+                          <ModeIcon className="w-4 h-4" />
+                          {modeConfig.label}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-end justify-end md:justify-center">
+                      <button className="px-5 py-2 rounded-xl bg-gray-700/50 hover:bg-blue-600 text-gray-300 hover:text-white border border-gray-600 hover:border-transparent text-sm font-bold transition-all">
+                        Detaylar
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {jobs.length === 0 && !loading && !fetchError && (
+                <div className="text-center py-12 bg-gray-800/40 border border-gray-700/50 rounded-2xl">
+                  <Briefcase className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400 font-medium">Bu kriterlere uygun iş ilanı bulunamadı.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {page.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <button
+                onClick={() => fetchJobs(page.number - 1)}
+                disabled={loading || page.number <= 0}
+                className="px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm font-bold disabled:opacity-50 transition-all"
+              >
+                Önceki
+              </button>
+              <span className="text-sm font-medium text-gray-500">
+                Sayfa {page.number + 1} / {page.totalPages}
+              </span>
+              <button
+                onClick={() => fetchJobs(page.number + 1)}
+                disabled={loading || page.number + 1 >= page.totalPages}
+                className="px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm font-bold disabled:opacity-50 transition-all"
+              >
+                Sonraki
+              </button>
+            </div>
+          )}
         </section>
+
       </div>
-    </main>
+    </div>
   );
 }
 
 function normalizePage(data) {
-  if (data.page) {
-    return {
-      number: data.page.number ?? 0,
-      size: data.page.size ?? 20,
-      totalPages: data.page.totalPages ?? 0,
-      totalElements: data.page.totalElements ?? 0,
-    };
-  }
-
-  return {
-    number: data.number ?? 0,
-    size: data.size ?? 20,
-    totalPages: data.totalPages ?? 0,
-    totalElements: data.totalElements ?? 0,
-  };
-}
-
-function formatWorkMode(workMode) {
-  return workMode
-    ? workMode.charAt(0) + workMode.slice(1).toLowerCase()
-    : "Unknown";
-}
-
-function formatSalary(value) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value ?? 0);
+  if (data.page) return { number: data.page.number ?? 0, size: data.page.size ?? 20, totalPages: data.page.totalPages ?? 0, totalElements: data.page.totalElements ?? 0 };
+  return { number: data.number ?? 0, size: data.size ?? 20, totalPages: data.totalPages ?? 0, totalElements: data.totalElements ?? 0 };
 }

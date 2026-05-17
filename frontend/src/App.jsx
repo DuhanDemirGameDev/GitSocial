@@ -10,6 +10,7 @@ import CommunityList from './pages/CommunityList';
 import CreateCommunity from './pages/CreateCommunity';
 import DashboardLayout from './layouts/DashboardLayout';
 import { GuestRoute, ProtectedRoute } from './components/ProtectedRoute';
+import JobBoard from './components/JobBoard';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Feed />} />
+            <Route path="jobs" element={<JobBoard />} />
             <Route path="/communities" element={<CommunityList />} />
             <Route path="/communities/new" element={<CreateCommunity />} />
             <Route path="/communities/:id" element={<CommunityDetail />} />

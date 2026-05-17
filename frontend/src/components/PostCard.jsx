@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { authService } from '../api/authService';
 import { postService } from '../api/postService';
+// YENİ: Profesyonel ikonlarımızı projeye dahil ediyoruz
+import { Star, MessageSquare, Edit3, Trash2, Send } from 'lucide-react';
 
 function Avatar({ user, size = 'md' }) {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'GitSocial User';
@@ -23,7 +25,7 @@ function Avatar({ user, size = 'md' }) {
   }
 
   return (
-    <div className={`${sizeClass} rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 border border-gray-700 flex items-center justify-center font-black text-white`}>
+    <div className={`${sizeClass} rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 border border-gray-700 flex items-center justify-center font-black text-white shadow-inner`}>
       {initials}
     </div>
   );
@@ -64,23 +66,19 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
 
   async function handleLike() {
     setError('');
-
     try {
       const response = await postService.toggleLike(post.id);
       setLikeCount(response.likeCount);
       setLiked(response.likedByCurrentUser);
     } catch (err) {
-      setError(err.response?.data?.message || 'Like action failed.');
+      setError(err.response?.data?.message || 'Action failed.');
     }
   }
 
   async function handleSaveEdit(event) {
     event.preventDefault();
     const nextContent = editText.trim();
-
-    if (!nextContent) {
-      return;
-    }
+    if (!nextContent) return;
 
     setSavingEdit(true);
     setError('');
@@ -100,10 +98,7 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
 
   async function handleDeletePost() {
     const confirmed = window.confirm('Delete this post?');
-
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setDeletingPost(true);
     setError('');
@@ -122,13 +117,8 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
   async function loadComments(nextPage = 0, append = false) {
     setLoadingComments(true);
     setError('');
-
     try {
-      const response = await postService.getComments(post.id, {
-        page: nextPage,
-        size: 10,
-      });
-
+      const response = await postService.getComments(post.id, { page: nextPage, size: 10 });
       setComments((current) => append ? [...current, ...response.content] : response.content);
       setCommentsPage(response);
     } catch (err) {
@@ -141,7 +131,6 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
   async function toggleComments() {
     const nextOpen = !commentsOpen;
     setCommentsOpen(nextOpen);
-
     if (nextOpen && comments.length === 0) {
       await loadComments(0, false);
     }
@@ -150,10 +139,7 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
   async function handleSubmitComment(event) {
     event.preventDefault();
     const nextContent = commentText.trim();
-
-    if (!nextContent) {
-      return;
-    }
+    if (!nextContent) return;
 
     setSubmittingComment(true);
     setError('');
@@ -173,26 +159,20 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
 
   async function handleCommentLike(commentId) {
     setError('');
-
     try {
       const response = await postService.toggleCommentLike(post.id, commentId);
       setComments((current) => current.map((comment) => (
         comment.id === commentId
-          ? {
-              ...comment,
-              likeCount: response.likeCount,
-              likedByCurrentUser: response.likedByCurrentUser,
-            }
+          ? { ...comment, likeCount: response.likeCount, likedByCurrentUser: response.likedByCurrentUser }
           : comment
       )));
     } catch (err) {
-      setError(err.response?.data?.message || 'Comment like action failed.');
+      setError(err.response?.data?.message || 'Action failed.');
     }
   }
 
   async function handleDeleteComment(commentId) {
     setError('');
-
     try {
       await postService.deleteComment(post.id, commentId);
       setComments((current) => current.filter((comment) => comment.id !== commentId));
@@ -202,24 +182,23 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
     }
   }
 
-  if (removed) {
-    return null;
-  }
+  if (removed) return null;
 
   return (
-    <article className="bg-gray-800/70 border border-gray-700/60 rounded-2xl shadow-xl overflow-hidden">
+    <article className="bg-gray-800/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl shadow-xl overflow-hidden hover:border-gray-600/50 transition-colors duration-300">
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
             <Avatar user={post.author} />
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white truncate">{authorName}</h2>
+            <div className="min-w-0 cursor-pointer group">
+              <h2 className="text-sm font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate">{authorName}</h2>
               <p className="text-xs text-gray-500">{formattedDate}</p>
             </div>
           </div>
 
+          {/* DÜZENLE VE SİL BUTONLARI ŞIK İKONLARA DÖNÜŞTÜ */}
           {isPostAuthor && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -227,17 +206,19 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
                   setEditing((current) => !current);
                 }}
                 disabled={savingEdit || deletingPost}
-                className="px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-300 border border-gray-600 hover:bg-gray-700 disabled:opacity-50 text-xs font-bold transition-all"
+                className="p-2 rounded-full text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all disabled:opacity-50"
+                title="Edit Post"
               >
-                {editing ? 'Cancel' : 'Edit'}
+                <Edit3 className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={handleDeletePost}
                 disabled={deletingPost}
-                className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 hover:bg-red-500/20 disabled:opacity-50 text-xs font-bold transition-all"
+                className="p-2 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                title="Delete Post"
               >
-                {deletingPost ? 'Deleting...' : 'Delete'}
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -249,19 +230,28 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
               value={editText}
               onChange={(event) => setEditText(event.target.value)}
               maxLength={1000}
-              className="w-full min-h-24 resize-y rounded-xl bg-gray-900/70 border border-gray-700 text-gray-100 placeholder-gray-500 px-4 py-3 focus:outline-none focus:border-blue-500"
+              className="w-full min-h-24 resize-y rounded-xl bg-gray-900/80 border border-gray-700 text-gray-100 placeholder-gray-500 px-4 py-3 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition-all"
             />
-            <button
-              type="submit"
-              disabled={savingEdit || !editText.trim()}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold transition-all"
-            >
-              {savingEdit ? 'Saving...' : 'Save'}
-            </button>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="px-4 py-2 rounded-full bg-gray-700/50 text-gray-300 hover:bg-gray-700 text-sm font-bold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit || !editText.trim()}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 text-white text-sm font-bold transition-all shadow-lg"
+              >
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </form>
         ) : (
           content && (
-            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-gray-200 leading-relaxed whitespace-pre-wrap break-words text-[15px]">
               {content}
             </p>
           )
@@ -269,32 +259,40 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
       </div>
 
       {post.mediaUrl && (
-        <img
-          src={post.mediaUrl}
-          alt=""
-          className="w-full max-h-[520px] object-cover border-y border-gray-700/60"
-        />
+        <div className="w-full overflow-hidden border-y border-gray-700/50 bg-gray-900/50">
+          <img
+            src={post.mediaUrl}
+            alt="Post media"
+            className="w-full max-h-[520px] object-contain"
+          />
+        </div>
       )}
 
-      <div className="px-5 py-3 flex items-center gap-3 border-t border-gray-700/60">
+      {/* YENİ NESİL AKSİYON BUTONLARI (KAPSÜL TASARIM) */}
+      <div className="px-5 py-3 flex items-center gap-4 border-t border-gray-700/50">
+        
+        {/* YILDIZ (STAR) BUTONU */}
         <button
           type="button"
           onClick={handleLike}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`group flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
             liked
-              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-              : 'bg-gray-700/50 text-gray-300 border border-gray-600 hover:bg-gray-700'
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+              : 'bg-gray-800/50 text-gray-400 border border-transparent hover:bg-gray-700/60 hover:text-gray-200'
           }`}
         >
-          {liked ? 'Liked' : 'Like'} - {likeCount}
+          <Star className={`w-4 h-4 transition-all duration-300 ${liked ? 'fill-amber-400' : 'group-hover:scale-110'}`} />
+          <span>{likeCount} {likeCount === 1 ? 'Star' : 'Stars'}</span>
         </button>
 
+        {/* YORUM BUTONU */}
         <button
           type="button"
           onClick={toggleComments}
-          className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-700/50 text-gray-300 border border-gray-600 hover:bg-gray-700 transition-all"
+          className="group flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold bg-gray-800/50 text-gray-400 border border-transparent hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/30 transition-all duration-300"
         >
-          Comments - {commentCount}
+          <MessageSquare className="w-4 h-4 transition-transform group-hover:scale-110" />
+          <span>{commentCount} {commentCount === 1 ? 'Comment' : 'Comments'}</span>
         </button>
       </div>
 
@@ -305,26 +303,27 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
       )}
 
       {commentsOpen && (
-        <div className="px-5 pb-5 border-t border-gray-700/60">
-          <form onSubmit={handleSubmitComment} className="flex gap-2 py-4">
+        <div className="px-5 pb-5 pt-2 border-t border-gray-700/50 bg-gray-900/20">
+          <form onSubmit={handleSubmitComment} className="flex gap-3 py-4 relative">
             <input
               type="text"
               maxLength={500}
               value={commentText}
               onChange={(event) => setCommentText(event.target.value)}
               placeholder="Write a comment..."
-              className="flex-1 px-4 py-2 rounded-xl bg-gray-900/70 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="flex-1 pl-4 pr-12 py-2.5 rounded-full bg-gray-900/80 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/60 transition-all text-sm"
             />
+            {/* YORUM GÖNDERME BUTONU OK İKONUNA DÖNÜŞTÜ */}
             <button
               type="submit"
               disabled={submittingComment || !commentText.trim()}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold transition-all"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-500 hover:text-blue-400 disabled:opacity-40 transition-colors"
             >
-              Send
+              <Send className="w-4 h-4" />
             </button>
           </form>
 
-          <div className="space-y-3">
+          <div className="space-y-4 mt-2">
             {comments.map((comment) => {
               const commentAuthor = [comment.author?.firstName, comment.author?.lastName]
                 .filter(Boolean)
@@ -332,13 +331,13 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
               const canDeleteComment = currentUserId === comment.author?.id || isPostAuthor;
 
               return (
-                <div key={comment.id} className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-3">
+                <div key={comment.id} className="group relative bg-gray-800/40 border border-gray-700/40 rounded-2xl p-4 hover:border-gray-600/50 transition-colors">
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 cursor-pointer">
                       <Avatar user={comment.author} size="sm" />
                       <div className="min-w-0">
-                        <span className="block text-sm font-bold text-gray-200 truncate">{commentAuthor}</span>
-                        <span className="block text-xs text-gray-500">
+                        <span className="block text-sm font-bold text-gray-200 hover:text-blue-400 transition-colors truncate">{commentAuthor}</span>
+                        <span className="block text-[11px] text-gray-500">
                           {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ''}
                         </span>
                       </div>
@@ -348,31 +347,40 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
                       <button
                         type="button"
                         onClick={() => handleDeleteComment(comment.id)}
-                        className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs font-bold transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        title="Delete Comment"
                       >
-                        Delete
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
 
-                  <p className="text-sm text-gray-300 break-words">{comment.content}</p>
+                  <p className="text-[13px] text-gray-300 break-words pl-10 pr-2">{comment.content}</p>
 
-                  <button
-                    type="button"
-                    onClick={() => handleCommentLike(comment.id)}
-                    className={`mt-3 text-xs font-bold transition-all ${
-                      comment.likedByCurrentUser ? 'text-blue-300' : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                  >
-                    {comment.likedByCurrentUser ? 'Liked' : 'Like'} - {comment.likeCount ?? 0}
-                  </button>
+                  {/* YORUM YILDIZLAMA BUTONU */}
+                  <div className="pl-10 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCommentLike(comment.id)}
+                      className={`flex items-center gap-1.5 text-[11px] font-bold transition-all ${
+                        comment.likedByCurrentUser 
+                          ? 'text-amber-400' 
+                          : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${comment.likedByCurrentUser ? 'fill-amber-400' : ''}`} />
+                      {comment.likeCount ?? 0} {comment.likeCount === 1 ? 'Star' : 'Stars'}
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
 
           {loadingComments && (
-            <p className="text-sm text-gray-500 py-3">Loading comments...</p>
+            <div className="flex justify-center py-4">
+              <span className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></span>
+            </div>
           )}
 
           {commentsPage && !commentsPage.last && (
@@ -380,9 +388,9 @@ function PostCard({ post, onPostUpdated, onPostDeleted }) {
               type="button"
               onClick={() => loadComments(commentsPage.number + 1, true)}
               disabled={loadingComments}
-              className="mt-4 text-sm font-bold text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              className="w-full mt-4 py-2 text-sm font-bold text-gray-400 hover:text-gray-200 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl transition-all disabled:opacity-50"
             >
-              Load more comments
+              Daha fazla yorum yükle
             </button>
           )}
         </div>
