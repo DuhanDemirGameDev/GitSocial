@@ -1,6 +1,7 @@
 import api, { clearAccessToken, getAccessToken, setAccessToken } from './axiosInstance';
 
-let currentUser = null;
+// DEĞİŞİKLİK 1: Hafızada kullanıcı yoksa, tarayıcının kalıcı belleğine (localStorage) bak
+let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 
 export const authService = {
     register: async (userData) => {
@@ -14,6 +15,11 @@ export const authService = {
         if (response.data?.accessToken) {
             setAccessToken(response.data.accessToken);
             currentUser = response.data.user ?? null;
+            
+            // DEĞİŞİKLİK 2: Giriş yapıldığında kullanıcıyı tarayıcıya kaydet (F5'te silinmesin)
+            if (currentUser) {
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
         }
 
         return response.data;
@@ -25,6 +31,8 @@ export const authService = {
         } finally {
             clearAccessToken();
             currentUser = null;
+            // DEĞİŞİKLİK 3: Çıkış yapıldığında kullanıcı bilgisini de temizle
+            localStorage.removeItem('currentUser');
         }
     },
 
@@ -38,11 +46,16 @@ export const authService = {
         if (response.data?.accessToken) {
             setAccessToken(response.data.accessToken);
             currentUser = response.data.user ?? currentUser;
+            
+            if (currentUser) {
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
             return true;
         }
 
         clearAccessToken();
         currentUser = null;
+        localStorage.removeItem('currentUser');
         return false;
     },
 
